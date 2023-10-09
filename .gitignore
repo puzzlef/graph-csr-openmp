@@ -1,3 +1,10 @@
+# External includes
+ext/
+
+# Temporary files
+tmp/
+
+
 # Prerequisites
 *.d
 
