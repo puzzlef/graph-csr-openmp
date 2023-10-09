@@ -21,7 +21,7 @@ cp ../PIGO/release/pigo.hpp ext/pigo.hpp
 
 # Fixed config
 : "${MAX_THREADS:=64}"
-: "${REPEAT_METHOD:=1}"
+: "${REPEAT_METHOD:=5}"
 # Define macros (dont forget to add here)
 DEFINES=(""
 "-DMAX_THREADS=$MAX_THREADS"

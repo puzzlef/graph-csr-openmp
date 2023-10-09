@@ -1,8 +1,22 @@
 #include <iostream>
 #include "ext/pigo.hpp"
+#include "inc/main.hxx"
 
 using namespace std;
-using namespace pigo;
+
+
+
+
+#pragma region CONFIGURATION
+#ifndef MAX_THREADS
+/** Maximum number of threads to use. */
+#define MAX_THREADS 64
+#endif
+#ifndef REPEAT_METHOD
+/** Number of times to repeat each method. */
+#define REPEAT_METHOD 5
+#endif
+#pragma endregion
 
 
 
@@ -14,11 +28,20 @@ using namespace pigo;
  * @returns zero on success, non-zero on failure
  */
 int main(int argc, char** argv) {
-  Graph g { argv[1] };
-  cout << "number of vertices: " << g.n() << endl;
-  cout << "number of edges: " << g.m() << endl;
-  cout << "vertex 0's neighbors:\n";
-  for (auto n : g.neighbors(0))
-    cout << n << endl;
+  char *file = argv[1];
+  int repeat = REPEAT_METHOD;
+  printf("Loading graph %s ...\n", file);
+  for (int i=0; i<repeat; ++i) {
+    auto  t0 = timeNow();
+    pigo::Graph x { file };
+    auto  t1 = timeNow();
+    printf("order: %zu, size: %zu {}\n", x.n(), x.m());
+    float tl = duration(t0, t1);
+    printf("{%09.1fms} pigo_Graph\n", tl);
+    float ts = measureDuration([&]() { x.sort(); });
+    printf("{%09.1fms} pigo_Graph_sort\n", ts);
+    x.free();
+  }
+  printf("\n");
   return 0;
 }
