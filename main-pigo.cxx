@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     auto  t0 = timeNow();
     pigo::Graph x { file };
     auto  t1 = timeNow();
-    printf("order: %zu, size: %zu {}\n", x.n(), x.m());
+    printf("order: %zu, size: %zu {}\n", size_t(x.n()), size_t(x.m()));
     float tl = duration(t0, t1);
     printf("{%09.1fms} pigo_Graph\n", tl);
     float ts = measureDuration([&]() { x.sort(); });
