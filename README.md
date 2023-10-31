@@ -15,7 +15,6 @@ Currently we are testing the performance of graph loading.
 - [ ] [wolfram77/GraphIt-DSL--graphit](https://github.com/wolfram77/GraphIt-DSL--graphit)
 - [ ] [wolfram77/narayanan2004--GraphMat](https://github.com/wolfram77/narayanan2004--GraphMat)
 - [ ] [wolfram77/the-data-lab--GraphOne](https://github.com/wolfram77/the-data-lab--GraphOne)
-- [ ] [wolfram77/RoyalCaliber--vertexAPI2](https://github.com/wolfram77/RoyalCaliber--vertexAPI2)
 - [ ] [wolfram77/goatdb--llama](https://github.com/wolfram77/goatdb--llama)
 - [ ] [wolfram77/usc-cloud--goffish](https://github.com/wolfram77/usc-cloud--goffish)
 
@@ -31,6 +30,5 @@ Currently we are testing the performance of graph loading.
 - [GraphIt-DSL/graphit](https://github.com/GraphIt-DSL/graphit)
 - [narayanan2004/GraphMat](https://github.com/narayanan2004/GraphMat)
 - [the-data-lab/GraphOne](https://github.com/the-data-lab/GraphOne)
-- [RoyalCaliber/vertexAPI2](https://github.com/RoyalCaliber/vertexAPI2)
 - [goatdb/llama](https://github.com/goatdb/llama)
 - [usc-cloud/goffish](https://github.com/usc-cloud/goffish)
