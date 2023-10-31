@@ -16,7 +16,6 @@ Currently we are testing the performance of graph loading.
 - [ ] [wolfram77/narayanan2004--GraphMat](https://github.com/wolfram77/narayanan2004--GraphMat)
 - [ ] [wolfram77/the-data-lab--GraphOne](https://github.com/wolfram77/the-data-lab--GraphOne)
 - [ ] [wolfram77/goatdb--llama](https://github.com/wolfram77/goatdb--llama)
-- [ ] [wolfram77/usc-cloud--goffish](https://github.com/wolfram77/usc-cloud--goffish)
 
 
 ## References
@@ -31,4 +30,3 @@ Currently we are testing the performance of graph loading.
 - [narayanan2004/GraphMat](https://github.com/narayanan2004/GraphMat)
 - [the-data-lab/GraphOne](https://github.com/the-data-lab/GraphOne)
 - [goatdb/llama](https://github.com/goatdb/llama)
-- [usc-cloud/goffish](https://github.com/usc-cloud/goffish)
