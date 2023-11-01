@@ -10,9 +10,9 @@ cd $src
 
 # Download scripts to test graph frameworks
 wget -O main-pigo.sh     https://github.com/wolfram77/GT-TDAlab--PIGO/raw/master/main.sh
-wget -O main-cuhornet.sh https://github.com/wolfram77/rapidsai--cuhornet/raw/master/main.sh
+wget -O main-cuhornet.sh https://github.com/wolfram77/rapidsai--cuhornet/raw/main/main.sh
 wget -O main-graphone.sh https://github.com/wolfram77/the-data-lab--GraphOne/raw/master/main.sh
-wget -O main-gunrock.sh  https://github.com/wolfram77/gunrock--gunrock/raw/master/main.sh
+wget -O main-gunrock.sh  https://github.com/wolfram77/gunrock--gunrock/raw/main/main.sh
 chmod +x main-pigo.sh
 chmod +x main-cuhornet.sh
 chmod +x main-graphone.sh
