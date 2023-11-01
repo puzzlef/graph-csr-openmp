@@ -12,7 +12,6 @@ Currently we are testing the performance of graph loading.
 - [ ] [wolfram77/rapidsai--cuhornet](https://github.com/wolfram77/rapidsai--cuhornet)
 - [ ] [wolfram77/KatanaGraph--katana](https://github.com/wolfram77/KatanaGraph--katana)
 - [ ] [wolfram77/GraphIt-DSL--graphit](https://github.com/wolfram77/GraphIt-DSL--graphit)
-- [ ] [wolfram77/narayanan2004--GraphMat](https://github.com/wolfram77/narayanan2004--GraphMat)
 - [ ] [wolfram77/the-data-lab--GraphOne](https://github.com/wolfram77/the-data-lab--GraphOne)
 
 
@@ -24,5 +23,4 @@ Currently we are testing the performance of graph loading.
 - [rapidsai/cuhornet](https://github.com/rapidsai/cuhornet)
 - [KatanaGraph/katana](https://github.com/KatanaGraph/katana)
 - [GraphIt-DSL/graphit](https://github.com/GraphIt-DSL/graphit)
-- [narayanan2004/GraphMat](https://github.com/narayanan2004/GraphMat)
 - [the-data-lab/GraphOne](https://github.com/the-data-lab/GraphOne)
