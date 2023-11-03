@@ -41,15 +41,7 @@ stdbuf --output=L ./a.out ~/Data/kmer_A2a.mtx        $par $adv $block $mode 2>&1
 stdbuf --output=L ./a.out ~/Data/kmer_V1r.mtx        $par $adv $block $mode 2>&1 | tee -a "$out"
 }
 
-for par in 0 1; do
-  for adv in 0 1; do
-    for block in 4096 8192 16384 32768 65536 131072 262144 524288; do
-      for mode in 0 1 2; do
-        perform-all $par $adv $block $mode
-      done
-    done
-  done
-done
+perform-all 1
 
 # Signal completion
 curl -X POST "https://maker.ifttt.com/trigger/puzzlef/with/key/${IFTTT_KEY}?value1=$src$1"
