@@ -123,21 +123,32 @@ inline I parseWholeNumberW(T &a, I ib, I ie) {
 // Parse whole number from string, using SIMD instructions.
 template <class T, class I>
 inline I parseWholeNumberSimdW(T &a, I ib, I ie) {
-  ie = skipDigits(ib, ie);
-  size_t n = size_t(ie - ib);
+  // Initialize constants.
   const __m256i C0 = _mm256_set1_epi8('0');
   const __m256i D9 = _mm256_set1_epi8(9);
-  const __m256i P1 = _mm256_set_epi8(1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10,
-    1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10);
+  const __m256i P1 = _mm256_set_epi8(
+    1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10,
+    1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10, 1, 10
+  );
   const __m128i P2 = _mm_set_epi8(1, 100, 1, 100, 1, 100, 1, 100, 1, 100, 1, 100, 1, 100, 1, 100);
   const __m128i P4 = _mm_set_epi16(1, 10000, 1, 10000, 1, 10000, 1, 10000);
+  // Find the length of integer in text.
+  ie = skipDigits(ib, ie);
+  size_t n = size_t(ie - ib);
+  // Load 32 bytes with proper mask (zero-fill the rest).
   uint32_t mask = uint32_t(0xFFFFFFFF) << (ib - ie + 32);
   auto xc = _mm256_maskz_loadu_epi8(mask, ie - 32);
+  // Subtract character '0' per byte as per mask.
   auto xd = _mm256_maskz_sub_epi8(mask, xc, C0);
+  // Now do a 1, 10, 1, 10, ... per byte multiply and add to 16bit.
   auto x2_16 = _mm256_maddubs_epi16(xd, P1);
+  // Convert the 16bit values to 8bit values (as 99 < 256).
   auto x2_08 = _mm256_cvtepi16_epi8(x2_16);
+  // Now do a 1, 100, 1, 100, ... per byte multiple and add to 16 bit.
   auto x4_16 = _mm_maddubs_epi16(x2_08, P2);
+  // Now do a 1, 10000, 1, 10000, ... per word (16bit) and add to 32-bit.
   auto x8_32 = _mm_madd_epi16(x4_16, P4);
+  // Finally extract 3 32-bit values and calculate the total value.
   uint64_t u = _mm_extract_epi32(x8_32, 3);
   uint64_t v = _mm_extract_epi32(x8_32, 2);
   uint64_t w = _mm_extract_epi32(x8_32, 1);
@@ -149,6 +160,7 @@ inline I parseWholeNumberSimdW(T &a, I ib, I ie) {
 // Parse integer from string.
 template <class T, class I>
 inline I parseIntegerW(T &a, I ib, I ie) {
+  // Skip if empty.
   if (ib==ie) return ib;
   // Handle sign.
   bool neg = *ib=='-';
@@ -163,23 +175,30 @@ inline I parseIntegerW(T &a, I ib, I ie) {
 // Parse integer from string, using SIMD instructions.
 template <class T, class I>
 inline I parseIntegerSimdW(T &a, I ib, I ie) {
+  // Skip if empty.
   if (ib==ie) return ib;
+  // Parse whole number, and apply sign.
   if (*ib=='-') { ib = parseWholeNumberSimdW(a, ib+1, ie); a = -a; }
-  else ib = parseWholeNumberSimdW(a, *ib=='+'? ib+1 : ib, ie);
+  else          { ib = parseWholeNumberSimdW(a, *ib=='+'? ib+1 : ib, ie); }
   return ib;
 }
 
 // Parse floating point number from string.
 template <class T, class I>
 inline I parseFloatW(T &a, I ib, I ie) {
-  uint64_t u = 0, v = 0;
-  int d = 0, e = 0;
+  // Skip if empty.
   if (ib==ie) return ib;
+  // Initialize variables.
+  uint64_t u = 0, v = 0;  // Whole and fractional parts.
+  int      d = 0, e = 0;  // Fractional and exponent digits.
+  // Handle sign.
   bool neg = *ib=='-';
   if (*ib=='-' || *ib=='+') ++ib;
+  // Parse whole part, fractional part, and exponent.
   ib = parseWholeNumberW(u, ib, ie);
   if (ib!=ie && *ib=='.') { I id = ++ib; ib = parseWholeNumberW(v, ib, ie); d = int(ib-id); }
   if (ib!=ie && (*ib=='e' || *ib=='E'))  ib = parseIntegerW(e, ib+1, ie);
+  // Compute number, and apply sign.
   a = (T(u) + T(v) * pow(10, -d)) * T(pow(10, e));
   if (neg) a = -a;
   return ib;
@@ -188,16 +207,24 @@ inline I parseFloatW(T &a, I ib, I ie) {
 // Parse floating point number from string, using SIMD instructions.
 template <class T, class I>
 inline I parseFloatSimdW(T &a, I ib, I ie) {
-  static constexpr double DV[] = {1, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10,
-    1e-11, 1e-12, 1e-13, 1e-14, 1e-15, 1e-16, 1e-17, 1e-18, 1e-19, 1e-20};
-  uint64_t u = 0, v = 0;
-  int d = 0, e = 0;
+  // Initialize constants.
+  static constexpr double DV[] = {  // Exponents of 10 for fractional part
+    1, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10,
+    1e-11, 1e-12, 1e-13, 1e-14, 1e-15, 1e-16, 1e-17, 1e-18, 1e-19, 1e-20
+  };
+  // Skip if empty.
   if (ib==ie) return ib;
+  // Initialize variables.
+  uint64_t u = 0, v = 0;  // Whole and fractional parts.
+  int      d = 0, e = 0;  // Fractional and exponent digits.
+  // Handle sign.
   bool neg = *ib=='-';
   if (*ib=='-' || *ib=='+') ++ib;
+  // Parse whole part, fractional part, and exponent.
   ib = parseWholeNumberSimdW(u, ib, ie);
   if (ib!=ie && *ib=='.') { I id = ++ib; ib = parseWholeNumberSimdW(v, ib, ie); d = int(ib-id); }
   if (ib!=ie && (*ib=='e' || *ib=='E'))  ib = parseIntegerSimdW(e, ib+1, ie);
+  // Compute number, and apply sign.
   a = (T(u) + (v? T(v) * T(DV[d]) : T())) * (e? T(pow(10, e)) : T(1));
   if (neg) a = -a;
   return ib;
@@ -270,7 +297,7 @@ int main(int argc, char **argv) {
         printf("%e\n", numbers[t][i]);
     }
   }
-  printf("{%09.1fms, n=%zu} %s\n", tr, n, PAR? "byteSumOmp" : "byteSum");
+  printf("{%09.1fms, n=%zu} %s\n", tr, n, PAR? "readNumbersOmp" : "readNumbers");
   // Free memory.
   for (size_t t=0; t<T; ++t)
     freeMemoryMmap(numbers[t], sizeof(double) * size / 4);
