@@ -150,8 +150,13 @@ inline I parseWholeNumberSimdW(T &a, I ib, I ie) {
 template <class T, class I>
 inline I parseIntegerW(T &a, I ib, I ie) {
   if (ib==ie) return ib;
-  if (*ib=='-') { ib = parseWholeNumberW(a, ib+1, ie); a = -a; }
-  else ib = parseWholeNumberW(a, *ib=='+'? ib+1 : ib, ie);
+  // Handle sign.
+  bool neg = *ib=='-';
+  if (*ib=='-' || *ib=='+') ++ib;
+  // Parse whole number.
+  ib = parseWholeNumberW(a, ib, ie);
+  // Apply sign.
+  if (neg) a = -a;
   return ib;
 }
 
