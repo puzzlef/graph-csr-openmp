@@ -164,21 +164,55 @@ inline I parseIntegerSimdW(T &a, I ib, I ie) {
   return ib;
 }
 
-// Read integers from string.
-inline size_t readIntegers(uint32_t *edges, const uint8_t *data, size_t N) {
+// Parse floating point number from string.
+template <class T, class I>
+inline I parseFloatW(T &a, I ib, I ie) {
+  uint64_t u = 0, v = 0;
+  int d = 0, e = 0;
+  if (ib==ie) return ib;
+  bool neg = *ib=='-';
+  if (*ib=='-' || *ib=='+') ++ib;
+  ib = parseWholeNumberW(u, ib, ie);
+  if (ib!=ie && *ib=='.') { I id = ++ib; ib = parseWholeNumberW(v, ib, ie); d = int(ib-id); }
+  if (ib!=ie && (*ib=='e' || *ib=='E'))  ib = parseIntegerW(e, ib+1, ie);
+  a = (T(u) + T(v) * pow(10, -d)) * T(pow(10, e));
+  if (neg) a = -a;
+  return ib;
+}
+
+// Parse floating point number from string, using SIMD instructions.
+template <class T, class I>
+inline I parseFloatSimdW(T &a, I ib, I ie) {
+  static constexpr double DV[] = {1, 1e-1, 1e-2, 1e-3, 1e-4, 1e-5, 1e-6, 1e-7, 1e-8, 1e-9, 1e-10,
+    1e-11, 1e-12, 1e-13, 1e-14, 1e-15, 1e-16, 1e-17, 1e-18, 1e-19, 1e-20};
+  uint64_t u = 0, v = 0;
+  int d = 0, e = 0;
+  if (ib==ie) return ib;
+  bool neg = *ib=='-';
+  if (*ib=='-' || *ib=='+') ++ib;
+  ib = parseWholeNumberSimdW(u, ib, ie);
+  if (ib!=ie && *ib=='.') { I id = ++ib; ib = parseWholeNumberSimdW(v, ib, ie); d = int(ib-id); }
+  if (ib!=ie && (*ib=='e' || *ib=='E'))  ib = parseIntegerSimdW(e, ib+1, ie);
+  a = (T(u) + (v? T(v) * T(DV[d]) : T())) * (e? T(pow(10, e)) : T(1));
+  if (neg) a = -a;
+  return ib;
+}
+
+// Read floats from string.
+inline size_t readFloats(double *edges, const uint8_t *data, size_t N) {
   size_t i = 0;
   const uint8_t *ib = data;
   const uint8_t *ie = data + N;
   while (ib<ie) {
     ib = skipNonDigits(ib, ie);
-    if (ib<ie) ib = parseIntegerW(edges[i++], ib, ie);
+    if (ib<ie) ib = parseFloatW(edges[i++], ib, ie);
   }
   return i;
 }
 
-// Read integers from string, using OpenMP.
+// Read floats from string, using OpenMP.
 template <size_t BLOCK=256*1024>
-inline size_t readIntegersOmp(uint32_t **edges, const uint8_t *data, size_t N) {
+inline size_t readFloatsOmp(double **edges, const uint8_t *data, size_t N) {
   size_t i = 0;
   const uint8_t *ib = data;
   const uint8_t *ie = data + N;
@@ -192,7 +226,7 @@ inline size_t readIntegersOmp(uint32_t **edges, const uint8_t *data, size_t N) {
     while (bb<be) {
       bb = skipNonDigits(bb, be);
       // if (bb<be) { bb = skipDigits(bb, be); i++; }
-      if (bb<be) bb = parseIntegerSimdW(edges[t][i++], bb, be);
+      if (bb<be) bb = parseFloatSimdW(edges[t][i++], bb, be);
     }
   }
   return i;
@@ -214,21 +248,27 @@ int main(int argc, char **argv) {
   printf("OMP_NUM_THREADS=%d\n", MAX_THREADS);
   // Map file to memory.
   auto [fd, addr, size] = mapFileToMemory(file);
-  // Allocate memory for storing converted integers (overallocate 64K pages).
+  // Allocate memory for storing converted numbers (overallocate 64K pages).
   int  T = PAR? MAX_THREADS : 1;
-  vector<uint32_t*> integers(T);
+  vector<double*> numbers(T);
   for (size_t t=0; t<T; ++t)
-    integers[t] = (uint32_t*) allocateMemoryMmap(sizeof(uint32_t) * size / 4);
-  printf("Counting and converting integers in file %s ...\n", file);
+    numbers[t] = (double*) allocateMemoryMmap(sizeof(double) * size / 4);
+  printf("Counting and converting numbers in file %s ...\n", file);
   size_t n = 0;
-  float tr = measureDuration([&]() {
-    if (PAR) n = readIntegersOmp(integers.data(), (uint8_t*) addr, size);
-    else     n = readIntegers   (integers[0],     (uint8_t*) addr, size);
+  double tr = measureDuration([&]() {
+    if (PAR) n = readFloatsOmp(numbers.data(), (uint8_t*) addr, size);
+    else     n = readFloats   (numbers[0],     (uint8_t*) addr, size);
   });
+  if (n<100) {
+    for (size_t t=0; t<T; ++t) {
+      for (size_t i=0; i<n; ++i)
+        printf("%e\n", numbers[t][i]);
+    }
+  }
   printf("{%09.1fms, n=%zu} %s\n", tr, n, PAR? "byteSumOmp" : "byteSum");
   // Free memory.
   for (size_t t=0; t<T; ++t)
-    freeMemoryMmap(integers[t], sizeof(uint32_t) * size / 4);
+    freeMemoryMmap(numbers[t], sizeof(double) * size / 4);
   unmapFileFromMemory(fd, addr, size);
   printf("\n");
   return 0;

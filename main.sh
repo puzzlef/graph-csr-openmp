@@ -20,12 +20,14 @@ DEFINES=(""
 
 # Build and run
 g++ ${DEFINES[*]} -std=c++17 -march=native -O3 -fopenmp main.cxx
+echo "3.141593E+42" > input.log
 
 perform-all() {
 par="$1"    # 0=serial, 1=parallel
 adv="$2"    # 0=none, 1=early madvise
 block="$3"  # block size
 mode="$4"   # 0=none, 1=madvise, 2=mmap
+stdbuf --output=L ./a.out input.log $par $adv $block $mode 2>&1 | tee -a "$out"
 stdbuf --output=L ./a.out ~/Data/indochina-2004.mtx  $par $adv $block $mode 2>&1 | tee -a "$out"
 # stdbuf --output=L ./a.out ~/Data/uk-2002.mtx         $par $adv $block $mode 2>&1 | tee -a "$out"
 # stdbuf --output=L ./a.out ~/Data/arabic-2005.mtx     $par $adv $block $mode 2>&1 | tee -a "$out"
