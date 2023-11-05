@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-src="mmap-access-pattern-openmp"
+src="parse-numbers-openmp"
 out="$HOME/Logs/$src.log"
 ulimit -s unlimited
 printf "" > "$out"
@@ -19,7 +19,7 @@ DEFINES=(""
 )
 
 # Build and run
-g++ ${DEFINES[*]} -std=c++17 -O3 -fopenmp main.cxx
+g++ ${DEFINES[*]} -std=c++17 -march=native -O3 -fopenmp main.cxx
 
 perform-all() {
 par="$1"    # 0=serial, 1=parallel
@@ -27,21 +27,22 @@ adv="$2"    # 0=none, 1=early madvise
 block="$3"  # block size
 mode="$4"   # 0=none, 1=madvise, 2=mmap
 stdbuf --output=L ./a.out ~/Data/indochina-2004.mtx  $par $adv $block $mode 2>&1 | tee -a "$out"
-stdbuf --output=L ./a.out ~/Data/uk-2002.mtx         $par $adv $block $mode 2>&1 | tee -a "$out"
-stdbuf --output=L ./a.out ~/Data/arabic-2005.mtx     $par $adv $block $mode 2>&1 | tee -a "$out"
-stdbuf --output=L ./a.out ~/Data/uk-2005.mtx         $par $adv $block $mode 2>&1 | tee -a "$out"
-stdbuf --output=L ./a.out ~/Data/webbase-2001.mtx    $par $adv $block $mode 2>&1 | tee -a "$out"
-stdbuf --output=L ./a.out ~/Data/it-2004.mtx         $par $adv $block $mode 2>&1 | tee -a "$out"
-stdbuf --output=L ./a.out ~/Data/sk-2005.mtx         $par $adv $block $mode 2>&1 | tee -a "$out"
-stdbuf --output=L ./a.out ~/Data/com-LiveJournal.mtx $par $adv $block $mode 2>&1 | tee -a "$out"
-stdbuf --output=L ./a.out ~/Data/com-Orkut.mtx       $par $adv $block $mode 2>&1 | tee -a "$out"
-stdbuf --output=L ./a.out ~/Data/asia_osm.mtx        $par $adv $block $mode 2>&1 | tee -a "$out"
-stdbuf --output=L ./a.out ~/Data/europe_osm.mtx      $par $adv $block $mode 2>&1 | tee -a "$out"
-stdbuf --output=L ./a.out ~/Data/kmer_A2a.mtx        $par $adv $block $mode 2>&1 | tee -a "$out"
+# stdbuf --output=L ./a.out ~/Data/uk-2002.mtx         $par $adv $block $mode 2>&1 | tee -a "$out"
+# stdbuf --output=L ./a.out ~/Data/arabic-2005.mtx     $par $adv $block $mode 2>&1 | tee -a "$out"
+# stdbuf --output=L ./a.out ~/Data/uk-2005.mtx         $par $adv $block $mode 2>&1 | tee -a "$out"
+# stdbuf --output=L ./a.out ~/Data/webbase-2001.mtx    $par $adv $block $mode 2>&1 | tee -a "$out"
+# stdbuf --output=L ./a.out ~/Data/it-2004.mtx         $par $adv $block $mode 2>&1 | tee -a "$out"
+# stdbuf --output=L ./a.out ~/Data/sk-2005.mtx         $par $adv $block $mode 2>&1 | tee -a "$out"
+# stdbuf --output=L ./a.out ~/Data/com-LiveJournal.mtx $par $adv $block $mode 2>&1 | tee -a "$out"
+# stdbuf --output=L ./a.out ~/Data/com-Orkut.mtx       $par $adv $block $mode 2>&1 | tee -a "$out"
+# stdbuf --output=L ./a.out ~/Data/asia_osm.mtx        $par $adv $block $mode 2>&1 | tee -a "$out"
+# stdbuf --output=L ./a.out ~/Data/europe_osm.mtx      $par $adv $block $mode 2>&1 | tee -a "$out"
+# stdbuf --output=L ./a.out ~/Data/kmer_A2a.mtx        $par $adv $block $mode 2>&1 | tee -a "$out"
 stdbuf --output=L ./a.out ~/Data/kmer_V1r.mtx        $par $adv $block $mode 2>&1 | tee -a "$out"
 }
 
+perform-all 0
 perform-all 1
 
 # Signal completion
-curl -X POST "https://maker.ifttt.com/trigger/puzzlef/with/key/${IFTTT_KEY}?value1=$src$1"
+# curl -X POST "https://maker.ifttt.com/trigger/puzzlef/with/key/${IFTTT_KEY}?value1=$src$1"

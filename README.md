@@ -1,4 +1,4 @@
-Design a fast parallel memory access pattern for a memory-mapped file with `mmap()`.
+Design a fast integer/floating-point parser for a memory-mapped file.
 
 > **Note**
 > You can just copy `main.sh` to your system and run it. \
