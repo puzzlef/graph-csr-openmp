@@ -95,32 +95,33 @@ inline bool isDigit(char c) {
   return c>='0' && c<='9';
 }
 
-// Skip integer characters.
+// Skip digit characters.
 template <class I>
-inline I skipInteger(I ib, I ie) {
+inline I skipDigits(I ib, I ie) {
   for (; ib!=ie && isDigit(*ib); ++ib);
   return ib;
 }
 
-// Skip non-integer characters.
+// Skip non-digit characters.
 template <class I>
-inline I skipNonInteger(I ib, I ie) {
+inline I skipNonDigits(I ib, I ie) {
   for (; ib!=ie && !isDigit(*ib); ++ib);
   return ib;
 }
 
-// Parse integer from string.
+// Parse whole numbers from string.
 template <class T, class I>
-inline I parseInteger(I ib, I ie, T &a) {
+inline I parseWholeNumberW(T &a, I ib, I ie) {
+  a = 0;
   for (; ib!=ie && isDigit(*ib); ++ib)
     a = a*10 + (*ib - '0');
   return ib;
 }
 
-// Parse integer from string, optimized.
+// Parse whole numbers from string, using SIMD instructions.
 template <class T, class I>
-inline I parseIntegerOpt(I ib, I ie, T &a) {
-  ie = skipInteger(ib, ie);
+inline I parseWholeNumberSimdW(T &a, I ib, I ie) {
+  ie = skipDigits(ib, ie);
   size_t n = size_t(ie - ib);
   const __m256i C0 = _mm256_set1_epi8('0');
   const __m256i D9 = _mm256_set1_epi8(9);
@@ -149,8 +150,8 @@ inline size_t readIntegers(uint32_t *edges, const uint8_t *data, size_t N) {
   const uint8_t *ib = data;
   const uint8_t *ie = data + N;
   while (ib<ie) {
-    ib = skipNonInteger(ib, ie);
-    if (ib<ie) ib = parseInteger(ib, ie, edges[i++]);
+    ib = skipNonDigits(ib, ie);
+    if (ib<ie) ib = parseWholeNumberW(edges[i++], ib, ie);
   }
   return i;
 }
@@ -166,12 +167,12 @@ inline size_t readIntegersOmp(uint32_t **edges, const uint8_t *data, size_t N) {
     int t = omp_get_thread_num();
     const uint8_t *bb = ib + b;
     const uint8_t *be = min(bb + BLOCK, ie);
-    if (bb!=ib && isDigit(*(bb-1))) bb = skipInteger(bb, ie);
-    if (be!=ie && isDigit(*(be-1))) be = skipInteger(be, ie);
+    if (bb!=ib && isDigit(*(bb-1))) bb = skipDigits(bb, ie);
+    if (be!=ie && isDigit(*(be-1))) be = skipDigits(be, ie);
     while (bb<be) {
-      bb = skipNonInteger(bb, be);
-      // if (bb<be) { bb = skipInteger(bb, be); i++; }
-      if (bb<be) bb = parseIntegerOpt(bb, be, edges[t][i++]);
+      bb = skipNonDigits(bb, be);
+      // if (bb<be) { bb = skipDigits(bb, be); i++; }
+      if (bb<be) bb = parseWholeNumberSimdW(edges[t][i++], bb, be);
     }
   }
   return i;
