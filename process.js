@@ -93,20 +93,41 @@ function processCsv(data) {
 
 
 
+// RANDOM-*
+// --------
+
+function writeRandomInts(pth, n, min, max) {
+  var a = '';
+  for (var i=0; i<n; i++) {
+    var f = Math.random();
+    var r = Math.floor(f * (max-min+1) + min);
+    a += r+'\n';
+  }
+  writeFile(pth, a);
+}
+
+
+
+
 // MAIN
 // ----
 
 function main(cmd, log, out) {
-  var data = readLog(log);
   if (path.extname(out)==='') cmd += '-dir';
   switch (cmd) {
     case 'csv':
+      var data = readLog(log);
       var rows = processCsv(data);
       writeCsv(out, rows);
       break;
     case 'csv-dir':
+      var data = readLog(log);
       for (var [graph, rows] of data)
         writeCsv(path.join(out, graph+'.csv'), rows);
+      break;
+    case 'random-ints':
+      var [n, min, max] = log.split(',').map(v => parseFloat(v.trim()));
+      writeRandomInts(out, n, min, max);
       break;
     default:
       console.error(`error: "${cmd}"?`);

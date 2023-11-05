@@ -2,6 +2,8 @@
 #include <tuple>
 #include <vector>
 #include <cstdint>
+#include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <stdlib.h>
 #include <fcntl.h>
@@ -109,7 +111,7 @@ inline I skipNonDigits(I ib, I ie) {
   return ib;
 }
 
-// Parse whole numbers from string.
+// Parse whole number from string.
 template <class T, class I>
 inline I parseWholeNumberW(T &a, I ib, I ie) {
   a = 0;
@@ -118,7 +120,7 @@ inline I parseWholeNumberW(T &a, I ib, I ie) {
   return ib;
 }
 
-// Parse whole numbers from string, using SIMD instructions.
+// Parse whole number from string, using SIMD instructions.
 template <class T, class I>
 inline I parseWholeNumberSimdW(T &a, I ib, I ie) {
   ie = skipDigits(ib, ie);
@@ -144,6 +146,24 @@ inline I parseWholeNumberSimdW(T &a, I ib, I ie) {
   return ie;
 }
 
+// Parse integer from string.
+template <class T, class I>
+inline I parseIntegerW(T &a, I ib, I ie) {
+  if (ib==ie) return ib;
+  if (*ib=='-') { ib = parseWholeNumberW(a, ib+1, ie); a = -a; }
+  else ib = parseWholeNumberW(a, *ib=='+'? ib+1 : ib, ie);
+  return ib;
+}
+
+// Parse integer from string, using SIMD instructions.
+template <class T, class I>
+inline I parseIntegerSimdW(T &a, I ib, I ie) {
+  if (ib==ie) return ib;
+  if (*ib=='-') { ib = parseWholeNumberSimdW(a, ib+1, ie); a = -a; }
+  else ib = parseWholeNumberSimdW(a, *ib=='+'? ib+1 : ib, ie);
+  return ib;
+}
+
 // Read integers from string.
 inline size_t readIntegers(uint32_t *edges, const uint8_t *data, size_t N) {
   size_t i = 0;
@@ -151,7 +171,7 @@ inline size_t readIntegers(uint32_t *edges, const uint8_t *data, size_t N) {
   const uint8_t *ie = data + N;
   while (ib<ie) {
     ib = skipNonDigits(ib, ie);
-    if (ib<ie) ib = parseWholeNumberW(edges[i++], ib, ie);
+    if (ib<ie) ib = parseIntegerW(edges[i++], ib, ie);
   }
   return i;
 }
@@ -172,7 +192,7 @@ inline size_t readIntegersOmp(uint32_t **edges, const uint8_t *data, size_t N) {
     while (bb<be) {
       bb = skipNonDigits(bb, be);
       // if (bb<be) { bb = skipDigits(bb, be); i++; }
-      if (bb<be) bb = parseWholeNumberSimdW(edges[t][i++], bb, be);
+      if (bb<be) bb = parseIntegerSimdW(edges[t][i++], bb, be);
     }
   }
   return i;
