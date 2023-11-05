@@ -138,7 +138,8 @@ inline I parseIntegerOpt(I ib, I ie, T &a) {
   uint64_t u = _mm_extract_epi32(x8_32, 3);
   uint64_t v = _mm_extract_epi32(x8_32, 2);
   uint64_t w = _mm_extract_epi32(x8_32, 1);
-  a = u + v*100000000 + w*10000000000000000;
+  if constexpr (sizeof(T)<=4) a = u + v*100000000;
+  else a = u + v*100000000 + w*10000000000000000;
   return ie;
 }
 
