@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
   float t = measureDuration([&]() {
     readEdgelistFormatStreamW(sources, targets, weights, stream, symmetric, weighted);
   });
-  printf("{%09.1fms} readGraph\n", t);
+  printf("{%09.1fms, order=%zu, size=%zu} readGraph\n", t, rows, size);
   printf("\n");
   return 0;
 }
