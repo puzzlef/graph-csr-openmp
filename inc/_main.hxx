@@ -1,4 +1,5 @@
 #pragma once
+#include "_exception.hxx"
 #include "_utility.hxx"
 #ifdef OPENMP
 #include "_openmp.hxx"
