@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 src="graph-csr-openmp"
-out="$HOME/Logs/$src.log"
+out="$HOME/Logs/$src$1.log"
 ulimit -s unlimited
 printf "" > "$out"
 
@@ -15,17 +15,17 @@ cd $src
 : "${KEY_TYPE:=uint32_t}"
 : "${EDGE_VALUE_TYPE:=float}"
 : "${MAX_THREADS:=1}"
+
+# Perform necessary steps
+perform-all() {
 # Define macros (dont forget to add here)
 DEFINES=(""
 "-DKEY_TYPE=$KEY_TYPE"
 "-DEDGE_VALUE_TYPE=$EDGE_VALUE_TYPE"
-"-DMAX_THREADS=$MAX_THREADS"
+"-DMAX_THREADS=$1"
 )
-
 # Run
 g++ ${DEFINES[*]} -std=c++17 -O3 -fopenmp main.cxx
-
-perform-all() {
 # stdbuf --output=L ./a.out ~/Data/soc-Epinions1.mtx   2>&1 | tee -a "$out"
 stdbuf --output=L ./a.out ~/Data/indochina-2004.mtx  2>&1 | tee -a "$out"
 stdbuf --output=L ./a.out ~/Data/uk-2002.mtx         2>&1 | tee -a "$out"
@@ -42,11 +42,15 @@ stdbuf --output=L ./a.out ~/Data/kmer_A2a.mtx        2>&1 | tee -a "$out"
 stdbuf --output=L ./a.out ~/Data/kmer_V1r.mtx        2>&1 | tee -a "$out"
 }
 
-perform-all
-perform-all
-perform-all
-perform-all
-perform-all
+for i in {1..5}; do
+  perform-all 1
+  perform-all 2
+  perform-all 4
+  perform-all 8
+  perform-all 16
+  perform-all 32
+  perform-all 64
+done
 
 # Signal completion
 curl -X POST "https://maker.ifttt.com/trigger/puzzlef/with/key/${IFTTT_KEY}?value1=$src$1"

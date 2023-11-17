@@ -48,15 +48,20 @@ int main(int argc, char **argv) {
   size_t rows, cols, size;
   readMtxFormatHeaderStreamW(symmetric, rows, cols, size, stream);
   // Allocate memory.
-  K *sources = new K[size];
-  K *targets = new K[size];
-  E *weights = weighted? new E[size] : nullptr;
+  vector<K*> sources(MAX_THREADS);
+  vector<K*> targets(MAX_THREADS);
+  vector<E*> weights(MAX_THREADS);
+  for (int t=0; t<MAX_THREADS; t++) {
+    sources[t] = new K[size];
+    targets[t] = new K[size];
+    weights[t] = weighted? new E[size] : nullptr;
+  }
   // Read MTX file body.
   symmetric = false;  // We don't want the reverse edges
   float t = measureDuration([&]() {
-    readEdgelistFormatStreamW(sources, targets, weights, stream, symmetric, weighted);
+    readEdgelistFormatStreamOmpW(sources, targets, weights, stream, symmetric, weighted);
   });
-  printf("{%09.1fms, order=%zu, size=%zu} readGraph\n", t, rows, size);
+  printf("{%09.1fms, order=%zu, size=%zu} readGraphOmp\n", t, rows, size);
   printf("\n");
   return 0;
 }

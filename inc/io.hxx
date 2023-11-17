@@ -1,12 +1,20 @@
 #pragma once
 #include <cstdint>
+#include <cstdlib>
+#include <memory>
 #include <string>
+#include <vector>
 #include <istream>
 #include <sstream>
 
+using std::unique_ptr;
 using std::string;
+using std::vector;
 using std::istream;
 using std::istringstream;
+using std::make_unique;
+using std::strtoull;
+using std::strtod;
 using std::getline;
 
 
@@ -91,6 +99,42 @@ inline void readEdgelistFormatStreamDo(istream& stream, bool symmetric, bool wei
 }
 
 
+#ifdef OPENMP
+/**
+ * Read a file in Edgelist format, using stream.
+ * @tparam CHECK check for error?
+ * @param stream input file stream
+ * @param symmetric is graph symmetric?
+ * @param weighted is graph weighted?
+ * @param fb on body line (u, v, w)
+ */
+template <bool CHECK=false, class FB>
+inline void readEdgelistFormatStreamDoOmp(istream& stream, bool symmetric, bool weighted, FB fb) {
+  const int THREADS = omp_get_max_threads();
+  const int LINES   = 128 * 1024;
+  vector<string> lines(LINES);
+  while (true) {
+    // Read several lines from the stream.
+    int READ = 0;
+    for (int i=0; i<LINES; ++i, ++READ)
+      if (!getline(stream, lines[i])) break;
+    if (READ==0) break;
+    // Parse lines using multiple threads.
+    #pragma omp parallel for schedule(dynamic, 1024)
+    for (int i=0; i<READ; ++i) {
+      char *line = (char*) lines[i].c_str();
+      size_t u = strtoull(line, &line, 10);
+      size_t v = strtoull(line, &line, 10);
+      double w = weighted? strtod(line, &line) : 1;
+      if (CHECK && *line!='\0') throw FormatError("Invalid Edgelist line");
+      fb(u, v, w);
+      if (symmetric && u!=v) fb(v, u, w);
+    }
+  }
+}
+#endif
+
+
 /**
  * Read a file in Edgelist format, using stream.
  * @tparam CHECK check for error?
@@ -111,5 +155,35 @@ inline void readEdgelistFormatStreamW(IK sources, IK targets, IE weights, istrea
     ++i;
   });
 }
+
+
+#ifdef OPENMP
+/**
+ * Read a file in Edgelist format, using stream.
+ * @tparam CHECK check for error?
+ * @param sources per-thread source vertices (output)
+ * @param targets per-thread target vertices (output)
+ * @param weights per-thread edge weights (output)
+ * @param stream input file stream
+ * @param symmetric is graph symmetric?
+ * @param weighted is graph weighted?
+ */
+template <bool CHECK=false, class IIK, class IIE>
+inline void readEdgelistFormatStreamOmpW(IIK sources, IIK targets, IIE weights, istream& stream, bool symmetric, bool weighted) {
+  int THREADS = omp_get_max_threads();
+  // Track current index for each thread.
+  vector<unique_ptr<size_t>> is(THREADS);
+  for (int t=0; t<THREADS; ++t)
+    is[t] = make_unique<size_t>();
+  // Read lines from the stream.
+  readEdgelistFormatStreamDoOmp<CHECK>(stream, symmetric, weighted, [&](auto u, auto v, auto w) {
+    int t = omp_get_thread_num();
+    size_t i = (*is[t])++;
+    sources[t][i] = u;
+    targets[t][i] = v;
+    if (weighted) weights[t][i] = w;
+  });
+}
+#endif
 #pragma endregion
 #pragma endregion
