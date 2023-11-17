@@ -10,9 +10,13 @@ using namespace std;
 
 
 #pragma region CONFIGURATION
-#ifndef TYPE
+#ifndef KEY_TYPE
+/** Type of vertex ids. */
+#define KEY_TYPE uint32_t
+#endif
+#ifndef EDGE_VALUE_TYPE
 /** Type of edge weights. */
-#define TYPE float
+#define EDGE_VALUE_TYPE float
 #endif
 #ifndef MAX_THREADS
 /** Maximum number of threads to use. */
@@ -31,17 +35,22 @@ using namespace std;
  * @returns zero on success, non-zero on failure
  */
 int main(int argc, char **argv) {
+  using K = KEY_TYPE;
+  using E = EDGE_VALUE_TYPE;
   char *file    = argv[1];
   bool weighted = argc>2? atoi(argv[2]) : false;
+  omp_set_num_threads(MAX_THREADS);
+  printf("OMP_NUM_THREADS=%d\n", MAX_THREADS);
+  printf("Reading graph %s ...\n", file);
   // Read MTX file header.
   ifstream stream(file);
   bool symmetric = false;
   size_t rows, cols, size;
   readMtxFormatHeaderStreamW(symmetric, rows, cols, size, stream);
   // Allocate memory.
-  size_t *sources = new size_t[size];
-  size_t *targets = new size_t[size];
-  TYPE   *weights = weighted? new TYPE[size] : nullptr;
+  K *sources = new K[size];
+  K *targets = new K[size];
+  E *weights = weighted? new E[size] : nullptr;
   // Read MTX file body.
   float t = measureDuration([&]() {
     readEdgelistFormatStreamW(sources, targets, weights, stream, symmetric, weighted);

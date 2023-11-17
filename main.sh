@@ -12,11 +12,13 @@ fi
 cd $src
 
 # Fixed config
-: "${TYPE:=double}"
-: "${MAX_THREADS:=64}"
+: "${KEY_TYPE:=uint32_t}"
+: "${EDGE_VALUE_TYPE:=float}"
+: "${MAX_THREADS:=1}"
 # Define macros (dont forget to add here)
 DEFINES=(""
-"-DTYPE=$TYPE"
+"-DKEY_TYPE=$KEY_TYPE"
+"-DEDGE_VALUE_TYPE=$EDGE_VALUE_TYPE"
 "-DMAX_THREADS=$MAX_THREADS"
 )
 
