@@ -52,6 +52,7 @@ int main(int argc, char **argv) {
   K *targets = new K[size];
   E *weights = weighted? new E[size] : nullptr;
   // Read MTX file body.
+  symmetric = false;  // We don't want the reverse edges
   float t = measureDuration([&]() {
     readEdgelistFormatStreamW(sources, targets, weights, stream, symmetric, weighted);
   });
