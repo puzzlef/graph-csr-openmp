@@ -50,7 +50,7 @@ inline void readMtxFormatHeaderStreamW(bool& symmetric, size_t& rows, size_t& co
   string line, h0, h1, h2, h3, h4;
   while (true) {
     getline(stream, line);
-    if (line.find('%')!=0 || line.find('#')!=0) break;
+    if (line.find('%')!=0 && line.find('#')!=0) break;
     if (line.find("%%")!=0) continue;
     istringstream lstream(line);
     lstream >> h0 >> h1 >> h2 >> h3 >> h4;
@@ -101,7 +101,7 @@ inline void readEdgelistFormatStreamDo(istream& stream, bool symmetric, bool wei
  * @param symmetric is graph symmetric?
  * @param weighted is graph weighted?
  */
-template <bool CHECK=false, class IK, class IE, class FB>
+template <bool CHECK=false, class IK, class IE>
 inline void readEdgelistFormatStreamW(IK sources, IK targets, IE weights, istream& stream, bool symmetric, bool weighted) {
   size_t i = 0;
   readEdgelistFormatStreamDo<CHECK>(stream, symmetric, weighted, [&](auto u, auto v, auto w) {
