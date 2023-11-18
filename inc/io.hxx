@@ -15,6 +15,8 @@ using std::istream;
 using std::istringstream;
 using std::make_unique;
 using std::strcmp;
+using std::strtoull;
+using std::strtod;
 using std::sscanf;
 using std::fgets;
 
@@ -86,9 +88,11 @@ template <bool CHECK=false, class FB>
 inline void readEdgelistFormatFscanfDo(FILE *stream, bool symmetric, bool weighted, FB fb) {
   char line[1024];
   while (fgets(line, 1024, stream)) {
-    size_t u = 0, v = 0; double w = 1;
-    int args = weighted? sscanf(line, "%zu %zu %lf", &u, &v, &w) : sscanf(line, "%zu %zu", &u, &v);
-    if (CHECK && args!=2+weighted) throw FormatError("Invalid Edgelist line");
+    char *l = line;
+    size_t u = strtoull(l, &l, 10);
+    size_t v = strtoull(l, &l, 10);
+    double w = weighted? strtod(l, &l) : 1;
+    if (CHECK && *l!='\0') throw FormatError("Invalid Edgelist line");
     fb(u, v, w);
     if (symmetric && u!=v) fb(v, u, w);
   }
@@ -118,9 +122,11 @@ inline void readEdgelistFormatFscanfDoOmp(FILE *stream, bool symmetric, bool wei
     // Parse lines using multiple threads.
     #pragma omp parallel for schedule(dynamic, 1024)
     for (int i=0; i<READ; ++i) {
-      size_t u = 0, v = 0; double w = 1;
-      int args = weighted? sscanf(lines[i], "%zu %zu %lf", &u, &v, &w) : sscanf(lines[i], "%zu %zu", &u, &v);
-      if (CHECK && args!=2+weighted) throw FormatError("Invalid Edgelist line");
+      char *l = lines[i];
+      size_t u = strtoull(l, &l, 10);
+      size_t v = strtoull(l, &l, 10);
+      double w = weighted? strtod(l, &l) : 1;
+      if (CHECK && *l!='\0') throw FormatError("Invalid Edgelist line");
       fb(u, v, w);
       if (symmetric && u!=v) fb(v, u, w);
     }
