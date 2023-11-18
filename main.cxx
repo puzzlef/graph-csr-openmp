@@ -43,10 +43,10 @@ int main(int argc, char **argv) {
   printf("OMP_NUM_THREADS=%d\n", MAX_THREADS);
   printf("Reading graph %s ...\n", file);
   // Read MTX file header.
-  ifstream stream(file);
+  FILE *stream = fopen(file, "r");
   bool symmetric = false;
   size_t rows, cols, size;
-  readMtxFormatHeaderStreamW(symmetric, rows, cols, size, stream);
+  readMtxFormatHeaderFscanfW(symmetric, rows, cols, size, stream);
   // Allocate memory.
   vector<K*> sources(MAX_THREADS);
   vector<K*> targets(MAX_THREADS);
@@ -59,9 +59,10 @@ int main(int argc, char **argv) {
   // Read MTX file body.
   symmetric = false;  // We don't want the reverse edges
   float t = measureDuration([&]() {
-    readEdgelistFormatStreamOmpW(sources, targets, weights, stream, symmetric, weighted);
+    readEdgelistFormatFscanfOmpW(sources, targets, weights, stream, symmetric, weighted);
   });
   printf("{%09.1fms, order=%zu, size=%zu} readGraphOmp\n", t, rows, size);
+  fclose(stream);
   printf("\n");
   return 0;
 }

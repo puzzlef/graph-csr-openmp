@@ -44,11 +44,6 @@ stdbuf --output=L ./a.out ~/Data/kmer_V1r.mtx        2>&1 | tee -a "$out"
 
 for i in {1..5}; do
   perform-all 1
-  perform-all 2
-  perform-all 4
-  perform-all 8
-  perform-all 16
-  perform-all 32
   perform-all 64
 done
 
