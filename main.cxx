@@ -46,7 +46,7 @@ int main(int argc, char **argv) {
   FILE *stream = fopen(file, "r");
   bool symmetric = false;
   size_t rows, cols, size;
-  readMtxFormatHeaderFscanfW(symmetric, rows, cols, size, stream);
+  readMtxFormatHeaderW(symmetric, rows, cols, size, stream);
   // Allocate memory.
   vector<K*> sources(MAX_THREADS);
   vector<K*> targets(MAX_THREADS);
@@ -59,7 +59,7 @@ int main(int argc, char **argv) {
   // Read MTX file body.
   symmetric = false;  // We don't want the reverse edges
   float t = measureDuration([&]() {
-    readEdgelistFormatFscanfOmpW(sources, targets, weights, stream, symmetric, weighted);
+    readEdgelistFormatOmpW(sources, targets, weights, stream, symmetric, weighted);
   });
   printf("{%09.1fms, order=%zu, size=%zu} readGraphOmp\n", t, rows, size);
   fclose(stream);

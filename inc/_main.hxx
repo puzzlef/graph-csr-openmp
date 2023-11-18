@@ -2,6 +2,7 @@
 #include "_cctype.hxx"
 #include "_exception.hxx"
 #include "_utility.hxx"
+#include "_string.hxx"
 #ifdef OPENMP
 #include "_openmp.hxx"
 #endif
