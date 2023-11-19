@@ -6,6 +6,7 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <algorithm>
 
 using std::unique_ptr;
 using std::string;
@@ -16,6 +17,7 @@ using std::strcmp;
 using std::strtoull;
 using std::strtod;
 using std::sscanf;
+using std::min;
 
 
 
@@ -66,7 +68,6 @@ inline size_t readMtxFormatHeaderW(bool& symmetric, size_t& rows, size_t& cols, 
   char h0[1024], h1[1024], h2[1024], h3[1024], h4[1024];
   auto ib = data.begin(), ie = data.end(), it = ib;
   // Skip past the comments and read the graph type.
-  string_view h0, h1, h2, h3, h4;
   for (; it!=ie; it = findNextLine(it, ie)) {
     if (*it!='%') break;
     if (data.substr(it-ib, 14)!="%%MatrixMarket") continue;
@@ -123,7 +124,7 @@ inline void readEdgelistFormatDo(string_view data, bool symmetric, bool weighted
 template <bool CHECK=false, class IK, class IE>
 inline void readEdgelistFormatW(IK sources, IK targets, IE weights, string_view data, bool symmetric, bool weighted) {
   size_t i = 0;
-  readEdgelistFormatDo<CHECK>(stream, symmetric, weighted, [&](auto u, auto v, auto w) {
+  readEdgelistFormatDo<CHECK>(data, symmetric, weighted, [&](auto u, auto v, auto w) {
     sources[i] = u;
     targets[i] = v;
     if (weighted) weights[i] = w;
@@ -161,7 +162,7 @@ inline string_view readEdgelistFormatBlock(string_view data, size_t b, size_t B)
  * @returns per-thread number of edges read
  */
 template <bool CHECK=false, class IIK, class IIE>
-inline auto readEdgelistFormatOmpU(IIK sources, IIK targets, IIE weights, string_view data, bool symmetric, bool weighted) {
+inline auto readEdgelistFormatOmpW(IIK sources, IIK targets, IIE weights, string_view data, bool symmetric, bool weighted) {
   const size_t DATA  = data.size();
   const size_t BLOCK = 256 * 1024;  // Characters per block (256KB)
   const int T = omp_get_max_threads();
