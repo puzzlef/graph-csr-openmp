@@ -53,6 +53,7 @@ int main(int argc, char **argv) {
   vector<K*> sources(MAX_THREADS);
   vector<K*> targets(MAX_THREADS);
   vector<E*> weights(MAX_THREADS);
+  vector<unique_ptr<size_t>> counts;
   for (int t=0; t<MAX_THREADS; t++) {
     degrees[t] = new K[rows];
     sources[t] = new K[size];
@@ -62,10 +63,14 @@ int main(int argc, char **argv) {
   // Read MTX file body.
   symmetric = false;  // We don't want the reverse edges
   float t = measureDuration([&]() {
-    if (weighted) readEdgelistFormatOmpU<true> (degrees, sources, targets, weights, data, symmetric);
-    else          readEdgelistFormatOmpU<false>(degrees, sources, targets, weights, data, symmetric);
+    if (weighted) counts = readEdgelistFormatOmpU<true> (degrees, sources, targets, weights, data, symmetric);
+    else          counts = readEdgelistFormatOmpU<false>(degrees, sources, targets, weights, data, symmetric);
   });
-  printf("{%09.1fms, order=%zu, size=%zu} readGraphOmp\n", t, rows, size);
+  // Calculate total number of edges read.
+  size_t read = 0;
+  for (int t=0; t<MAX_THREADS; t++)
+    read += *counts[t];
+  printf("{%09.1fms, order=%zu, size=%zu, read=%zu} readGraphOmp\n", t, rows, size, read);
   printf("\n");
   return 0;
 }

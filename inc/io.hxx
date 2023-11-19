@@ -230,7 +230,7 @@ inline string_view readEdgelistFormatBlock(string_view data, size_t b, size_t B)
  * @returns per-thread number of edges read
  */
 template <bool WEIGHTED=false, int BASE=1, bool CHECK=false, class IIK, class IIE>
-inline auto readEdgelistFormatOmpU(IIK degrees, IIK sources, IIK targets, IIE weights, string_view data, bool symmetric) {
+inline vector<unique_ptr<size_t>> readEdgelistFormatOmpU(IIK degrees, IIK sources, IIK targets, IIE weights, string_view data, bool symmetric) {
   const size_t DATA  = data.size();
   const size_t BLOCK = 256 * 1024;  // Characters per block (256KB)
   const int T = omp_get_max_threads();
@@ -254,8 +254,8 @@ inline auto readEdgelistFormatOmpU(IIK degrees, IIK sources, IIK targets, IIE we
       sources[t][i] = u;
       targets[t][i] = v;
       if constexpr (WEIGHTED) weights[t][i] = w;
-      #pragma omp atomic
-      ++degrees[0][u];
+      // #pragma omp atomic
+      ++degrees[t][u];
       ++i;
     };
     if constexpr (CHECK) {
@@ -268,6 +268,7 @@ inline auto readEdgelistFormatOmpU(IIK degrees, IIK sources, IIK targets, IIE we
   }
   // Throw error if any.
   if (CHECK && !err.empty()) throw err;
+  return is;
 }
 #endif
 #pragma endregion
