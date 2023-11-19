@@ -125,4 +125,136 @@ inline pair<I, I> findNextToken(I ib, I ie, FU fu, FW fw) {
   return {tb, te};
 }
 #pragma endregion
+
+
+
+
+#pragma region PARSE NUMBER
+/**
+ * Parse a whole number from a string.
+ * @tparam FULL 0=partial, 1=full range, 2=full range with check
+ * @param a obtained number (output)
+ * @param ib begin iterator
+ * @param ie end iterator
+ * @returns iterator to end of number, or error if FULL==2
+ */
+template <int FULL=0, class T, class I>
+inline I parseWholeNumberW(T &a, I ib, I ie) {
+  a = T();
+  for (; ib!=ie && (FULL==1 || isDigit(*ib)); ++ib)
+    a = a*10 + (*ib - '0');
+  return ib;
+}
+
+
+/**
+ * Parse an integer from a string.
+ * @tparam FULL 0=partial, 1=full range, 2=full range with check
+ * @param a obtained number (output)
+ * @param ib begin iterator
+ * @param ie end iterator
+ * @returns iterator to end of number, or error if FULL==2
+ */
+template <int FULL=0, class T, class I>
+inline I parseIntegerW(T &a, I ib, I ie) {
+  // Skip if empty.
+  if (ib==ie) return ib;
+  // Handle sign.
+  bool neg = *ib=='-';
+  if (*ib=='-' || *ib=='+') ++ib;
+  // Scan whole number.
+  ib = parseWholeNumberW<FULL>(a, ib, ie);
+  // Apply sign.
+  if (neg) a = -a;
+  return ib;
+}
+
+
+/**
+ * Parse a floating-point number from a string.
+ * @tparam FULL 0=partial, 1=full range, 2=full range with check
+ * @param a obtained number (output)
+ * @param ib begin iterator
+ * @param ie end iterator
+ * @returns iterator to end of number, or error if FULL==2
+ */
+template <int FULL=0, class T, class I>
+inline I parseFloatW(T &a, I ib, I ie) {
+  // Skip if empty.
+  if (ib==ie) return ib;
+  // Initialize variables.
+  uint64_t u = 0, v = 0;  // Whole and fractional parts.
+  int      d = 0, e = 0;  // Fractional and exponent digits.
+  // Handle sign.
+  bool neg = *ib=='-';
+  if (*ib=='-' || *ib=='+') ++ib;
+  // Parse whole part, fractional part, and exponent.
+  ib = parseWholeNumberW(u, ib, ie);
+  if (ib!=ie && *ib=='.') { I id = ++ib; ib = parseWholeNumberW(v, ib, ie); d = int(ib-id); }
+  if (ib!=ie && (*ib=='e' || *ib=='E'))  ib = parseIntegerW<FULL>(e, ib+1, ie);
+  // Compute number, and apply sign.
+  a = (T(u) + T(v) * pow(10, -d)) * T(pow(10, e));
+  if (neg) a = -a;
+  return ib;
+}
+
+
+/**
+ * Parse a number from a string.
+ * @tparam FULL 0=partial, 1=full range, 2=full range with check
+ * @param a obtained number (output)
+ * @param ib begin iterator
+ * @param ie end iterator
+ * @returns iterator to end of number, or error if FULL==2
+ */
+template <int FULL=0, class T, class I>
+inline I parseNumberW(T& a, I ib, I ie) {
+  if constexpr      (is_integral<T>::value)       return parseIntegerW<FULL>(a, ib, ie);
+  else if constexpr (is_floating_point<T>::value) return parseFloatW<FULL>  (a, ib, ie);
+  return ib;
+}
+#pragma endregion
+
+
+
+
+#pragma region READ TOKEN
+/**
+ * Obtain the next token from a string.
+ * @tparam CHECK check for error?
+ * @param a obtained token (output)
+ * @param ib begin iterator (updated)
+ * @param ie end iterator
+ * @param fu is special blank, e.g. comma? (c)
+ * @param fw is special whitespace, e.g. comma? (c)
+ * @returns iterator to end of token
+ */
+template <bool CHECK=false, class I, class FU, class FW>
+inline I readTokenW(string_view& a, I ib, I ie, FU fu, FW fw) {
+  auto [tb, te] = findNextToken(ib, ie, fu, fw);
+  if constexpr (CHECK) { if (tb==te) throw FormatError("Failed to read token (empty)", tb); }
+  a  = string_view(&*tb, te-tb);
+  return te;
+}
+
+
+/**
+ * Obtain the next number from a string.
+ * @tparam CHECK check for error?
+ * @param a obtained number (output)
+ * @param ib begin iterator (updated)
+ * @param ie end iterator
+ * @param fu is special blank, e.g. comma? (c)
+ * @param fw is special whitespace, e.g. comma? (c)
+ * @returns iterator to end of number
+ */
+template <bool CHECK=false, class T, class I, class FU, class FW>
+inline I readNumberW(T& a, I ib, I ie, FU fu, FW fw) {
+  auto [tb, te] = findNextToken(ib, ie, fu, fw);
+  if constexpr (CHECK) { if (tb==te) throw FormatError("Failed to read number (empty)", tb); }
+  tb = parseNumberW<CHECK? 2:1>(a, tb, te);
+  if constexpr (CHECK) { if (tb!=te) throw FormatError("Failed to read number (bad format)", tb); }
+  return te;
+}
+#pragma endregion
 #pragma endregion
