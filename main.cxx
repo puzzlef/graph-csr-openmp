@@ -60,7 +60,8 @@ int main(int argc, char **argv) {
   // Read MTX file body.
   symmetric = false;  // We don't want the reverse edges
   float t = measureDuration([&]() {
-    readEdgelistFormatOmpW(sources, targets, weights, data, symmetric, weighted);
+    if (weighted) readEdgelistFormatOmpW<true> (sources, targets, weights, data, symmetric);
+    else          readEdgelistFormatOmpW<false>(sources, targets, weights, data, symmetric);
   });
   printf("{%09.1fms, order=%zu, size=%zu} readGraphOmp\n", t, rows, size);
   printf("\n");
