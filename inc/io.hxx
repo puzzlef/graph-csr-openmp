@@ -25,7 +25,7 @@ using std::min;
 #pragma region METHODS
 #pragma region READ COO FORMAT HEADER
 /**
- * Read header of a COO format file, using mmap and sscanf.
+ * Read header of a COO format file.
  * @param rows number of rows (output)
  * @param cols number of columns (output)
  * @param size number of lines/edges (output)
@@ -42,8 +42,10 @@ inline size_t readCooFormatHeaderW(size_t& rows, size_t& cols, size_t& size, str
     if (*it!='%' || *it!='#' || !isNewline(*it)) break;
   }
   // Read rows, cols, size.
-  int args = sscanf(&*it, "%zu %zu %zu", &rows, &cols, &size);
-  if (args!=3) throw FormatError("Invalid COO header (bad sizes)");
+  it = readNumberW<true>(rows, it, ie, fu, fw);  // Number of vertices
+  it = readNumberW<true>(cols, it, ie, fu, fw);  // Number of vertices
+  it = readNumberW<true>(size, it, ie, fu, fw);  // Number of edges
+  // Jump to the next line.
   it = findNextLine(it, ie);
   return it-ib;
 }
@@ -54,7 +56,7 @@ inline size_t readCooFormatHeaderW(size_t& rows, size_t& cols, size_t& size, str
 
 #pragma region READ MTX FORMAT HEADER
 /**
- * Read header of a MTX format file, using mmap and sscanf.
+ * Read header of a MTX format file (check for errors, handle comments).
  * @param symmetric is graph symmetric (output)
  * @param rows number of rows (output)
  * @param cols number of columns (output)
@@ -65,20 +67,25 @@ inline size_t readCooFormatHeaderW(size_t& rows, size_t& cols, size_t& size, str
 inline size_t readMtxFormatHeaderW(bool& symmetric, size_t& rows, size_t& cols, size_t& size, string_view data) {
   auto fu = [](char c) { return false; };
   auto fw = [](char c) { return false; };
-  char h0[1024], h1[1024], h2[1024], h3[1024], h4[1024];
   auto ib = data.begin(), ie = data.end(), it = ib;
   // Skip past the comments and read the graph type.
+  string_view h0, h1, h2, h3, h4;
   for (; it!=ie; it = findNextLine(it, ie)) {
     if (*it!='%') break;
     if (data.substr(it-ib, 14)!="%%MatrixMarket") continue;
-    sscanf(&*it, "%s %s %s %s %s", h0, h1, h2, h3, h4);
+    it = readTokenW(h0, it, ie, fu, fw);  // %%MatrixMarket
+    it = readTokenW(h1, it, ie, fu, fw);  // Graph
+    it = readTokenW(h2, it, ie, fu, fw);  // Format
+    it = readTokenW(h3, it, ie, fu, fw);  // Field
+    it = readTokenW(h4, it, ie, fu, fw);  // Symmetry
   }
   // Check the graph type.
-  if (strcmp(h0, "%%MatrixMarket")!=0 || strcmp(h1, "matrix")!=0 || strcmp(h2, "coordinate")!=0) throw FormatError("Invalid MTX header (unknown format)");
-  symmetric = strcmp(h4, "symmetric")==0 || strcmp(h4, "skew-symmetric")==0;
+  if (h1!="matrix" || h2!="coordinate") throw FormatError("Invalid MTX header (unknown format)", ib);
+  symmetric = h4=="symmetric" || h4=="skew-symmetric";
   // Read rows, cols, size.
-  int args = sscanf(&*it, "%zu %zu %zu", &rows, &cols, &size);
-  if (args!=3) throw FormatError("Invalid MTX header (bad sizes)");
+  it = readNumberW<true>(rows, it, ie, fu, fw);  // Number of vertices
+  it = readNumberW<true>(cols, it, ie, fu, fw);  // Number of vertices
+  it = readNumberW<true>(size, it, ie, fu, fw);  // Number of edges
   // Jump to the next line.
   it = findNextLine(it, ie);
   return it-ib;
@@ -97,15 +104,23 @@ inline size_t readMtxFormatHeaderW(bool& symmetric, size_t& rows, size_t& cols, 
  * @param weighted is graph weighted?
  * @param fb on body line (u, v, w)
  */
-template <bool CHECK=false, class FB>
-inline void readEdgelistFormatDo(string_view data, bool symmetric, bool weighted, FB fb) {
+template <class FB>
+inline void readEdgelistFormatDoChecked(string_view data, bool symmetric, bool weighted, FB fb) {
+  auto fu = [](char c) { return c==','; };                      // Support CSV
+  auto fw = [](char c) { return c==',' || c=='%' || c=='#'; };  // Support CSV, comments
   auto ib = data.begin(), ie = data.end(), it = ib;
   for (; it!=ie; it = findNextLine(it, ie)) {
+    // Skip past empty lines and comments.
+    it = findNextNonBlank(it, ie, fu);
+    if (it==ie || *it=='%' || *it=='#' || isNewline(*it)) continue;
     // Read u, v, w (if weighted).
-    size_t u = strtoull(&*it, (char**) &it, 10);
-    size_t v = strtoull(&*it, (char**) &it, 10);
-    double w = weighted? strtod(&*it, (char**) &it) : 1;
-    if (CHECK && *it!='\n') throw FormatError("Invalid Edgelist line");
+    int64_t u = 0, v = 0; double w = 1; auto il = it;
+    it = readNumberW<true>(u, it, ie, fu, fw);  // Source vertex
+    it = readNumberW<true>(v, it, ie, fu, fw);  // Target vertex
+    if (weighted) {
+      it = readNumberW<true>(w, it, ie, fu, fw);  // Edge weight
+    }
+    if (u<0 || v<0) throw FormatError("Invalid Edgelist body (negative vertex-id)", il);
     fb(u, v, w);
     if (symmetric && u!=v) fb(v, u, w);
   }
@@ -113,7 +128,50 @@ inline void readEdgelistFormatDo(string_view data, bool symmetric, bool weighted
 
 
 /**
- * Read a file in Edgelist format, using mmap and sscanf.
+ * Read an EdgeList format file (crazy frog version).
+ * @param data input file data (updated)
+ * @param symmetric is graph symmetric
+ * @param weighted is graph weighted
+ * @param fb on body line (u, v, w)
+ */
+template <class FB>
+inline void readEdgelistFormatDoUnchecked(string_view data, bool symmetric, bool weighted, FB fb) {
+  auto ib = data.begin(), ie = data.end(), it = ib;
+  while (true) {
+    // Read u, v, w (if weighted).
+    uint64_t u = 0, v = 0; double w = 1;
+    it = findNextDigit(it, ie);
+    if (it==ie) break;  // No more lines
+    it = parseWholeNumberW(u, it, ie);  // Source vertex
+    it = findNextDigit(it, ie);
+    it = parseWholeNumberW(v, it, ie);  // Target vertex
+    if (weighted) {
+      it = findNextDigit(it, ie);
+      it = parseFloatW(w, it, ie);  // Edge weight
+    }
+    fb(u, v, w);
+    if (symmetric && u!=v) fb(v, u, w);
+  }
+}
+
+
+/**
+ * Read an EdgeList format file.
+ * @tparam CHECK check for error?
+ * @param data input file data (updated)
+ * @param symmetric is graph symmetric
+ * @param weighted is graph weighted
+ * @param fb on body line (u, v, w)
+ */
+template <bool CHECK=false, class FB>
+inline void readEdgelistFormatDo(string_view data, bool symmetric, bool weighted, FB fb) {
+  if constexpr (CHECK) readEdgelistFormatDoChecked(data, symmetric, weighted, fb);
+  else readEdgelistFormatDoUnchecked(data, symmetric, weighted, fb);
+}
+
+
+/**
+ * Read a file in Edgelist format, and record the edges.
  * @tparam CHECK check for error?
  * @param sources source vertices (output)
  * @param targets target vertices (output)

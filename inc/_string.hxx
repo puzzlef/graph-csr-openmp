@@ -1,8 +1,17 @@
 #pragma once
+#include <cstdint>
+#include <cmath>
+#include <type_traits>
 #include <utility>
+#include <string_view>
 #include "_cctype.hxx"
+#include "_exception.hxx"
 
+using std::is_integral;
+using std::is_floating_point;
 using std::pair;
+using std::string_view;
+using std::pow;
 
 
 
