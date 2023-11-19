@@ -102,9 +102,10 @@ inline void readEdgelistFormatDo(string_view data, bool symmetric, bool weighted
   auto ib = data.begin(), ie = data.end(), it = ib;
   for (; it!=ie; it = findNextLine(it, ie)) {
     // Read u, v, w (if weighted).
-    size_t u = 0, v = 0; double w = 1;
-    int args = weighted? sscanf(&*it, "%zu %zu %lf", &u, &v, &w) : sscanf(&*it, "%zu %zu", &u, &v);
-    if (CHECK && args!=2+weighted) throw FormatError("Invalid Edgelist line");
+    size_t u = strtoull(&*it, (char**) &it, 10);
+    size_t v = strtoull(&*it, (char**) &it, 10);
+    double w = weighted? strtod(&*it, (char**) &it) : 1;
+    if (CHECK && *it!='\n') throw FormatError("Invalid Edgelist line");
     fb(u, v, w);
     if (symmetric && u!=v) fb(v, u, w);
   }
