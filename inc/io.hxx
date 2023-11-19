@@ -98,13 +98,13 @@ inline size_t readMtxFormatHeaderW(bool& symmetric, size_t& rows, size_t& cols, 
 #pragma region READ EDGELIST FORMAT
 /**
  * Read a file in Edgelist format, using mmap and sscanf.
- * @tparam CHECK check for error?
+ * @tparam BASE base vertex id (0 or 1)
  * @param data input file data
  * @param symmetric is graph symmetric?
  * @param weighted is graph weighted?
  * @param fb on body line (u, v, w)
  */
-template <class FB>
+template <int BASE=1, class FB>
 inline void readEdgelistFormatDoChecked(string_view data, bool symmetric, bool weighted, FB fb) {
   auto fu = [](char c) { return c==','; };                      // Support CSV
   auto fw = [](char c) { return c==',' || c=='%' || c=='#'; };  // Support CSV, comments
@@ -115,8 +115,8 @@ inline void readEdgelistFormatDoChecked(string_view data, bool symmetric, bool w
     if (it==ie || *it=='%' || *it=='#' || isNewline(*it)) continue;
     // Read u, v, w (if weighted).
     int64_t u = 0, v = 0; double w = 1; auto il = it;
-    it = readNumberW<true>(u, it, ie, fu, fw);  // Source vertex
-    it = readNumberW<true>(v, it, ie, fu, fw);  // Target vertex
+    it = readNumberW<true, BASE>(u, it, ie, fu, fw);  // Source vertex
+    it = readNumberW<true, BASE>(v, it, ie, fu, fw);  // Target vertex
     if (weighted) {
       it = readNumberW<true>(w, it, ie, fu, fw);  // Edge weight
     }
@@ -129,12 +129,13 @@ inline void readEdgelistFormatDoChecked(string_view data, bool symmetric, bool w
 
 /**
  * Read an EdgeList format file (crazy frog version).
+ * @tparam BASE base vertex id (0 or 1)
  * @param data input file data (updated)
  * @param symmetric is graph symmetric
  * @param weighted is graph weighted
  * @param fb on body line (u, v, w)
  */
-template <class FB>
+template <int BASE=1, class FB>
 inline void readEdgelistFormatDoUnchecked(string_view data, bool symmetric, bool weighted, FB fb) {
   auto ib = data.begin(), ie = data.end(), it = ib;
   while (true) {
@@ -142,9 +143,9 @@ inline void readEdgelistFormatDoUnchecked(string_view data, bool symmetric, bool
     uint64_t u = 0, v = 0; double w = 1;
     it = findNextDigit(it, ie);
     if (it==ie) break;  // No more lines
-    it = parseWholeNumberW(u, it, ie);  // Source vertex
+    it = parseWholeNumberW<0, BASE>(u, it, ie);  // Source vertex
     it = findNextDigit(it, ie);
-    it = parseWholeNumberW(v, it, ie);  // Target vertex
+    it = parseWholeNumberW<0, BASE>(v, it, ie);  // Target vertex
     if (weighted) {
       it = findNextDigit(it, ie);
       it = parseFloatW(w, it, ie);  // Edge weight

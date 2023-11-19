@@ -142,16 +142,18 @@ inline pair<I, I> findNextToken(I ib, I ie, FU fu, FW fw) {
 /**
  * Parse a whole number from a string.
  * @tparam FULL 0=partial, 1=full range, 2=full range with check
+ * @tparam BASE base to subtract from number
  * @param a obtained number (output)
  * @param ib begin iterator
  * @param ie end iterator
  * @returns iterator to end of number, or error if FULL==2
  */
-template <int FULL=0, class T, class I>
+template <int FULL=0, int BASE=0, class T, class I>
 inline I parseWholeNumberW(T &a, I ib, I ie) {
   a = T();
   for (; ib!=ie && (FULL==1 || isDigit(*ib)); ++ib)
     a = a*10 + (*ib - '0');
+  if constexpr (BASE) a -= BASE;
   return ib;
 }
 
@@ -159,12 +161,13 @@ inline I parseWholeNumberW(T &a, I ib, I ie) {
 /**
  * Parse an integer from a string.
  * @tparam FULL 0=partial, 1=full range, 2=full range with check
+ * @tparam BASE base to subtract from integer
  * @param a obtained number (output)
  * @param ib begin iterator
  * @param ie end iterator
  * @returns iterator to end of number, or error if FULL==2
  */
-template <int FULL=0, class T, class I>
+template <int FULL=0, int BASE=0, class T, class I>
 inline I parseIntegerW(T &a, I ib, I ie) {
   // Skip if empty.
   if (ib==ie) return ib;
@@ -172,7 +175,7 @@ inline I parseIntegerW(T &a, I ib, I ie) {
   bool neg = *ib=='-';
   if (*ib=='-' || *ib=='+') ++ib;
   // Scan whole number.
-  ib = parseWholeNumberW<FULL>(a, ib, ie);
+  ib = parseWholeNumberW<FULL, BASE>(a, ib, ie);
   // Apply sign.
   if (neg) a = -a;
   return ib;
@@ -211,15 +214,16 @@ inline I parseFloatW(T &a, I ib, I ie) {
 /**
  * Parse a number from a string.
  * @tparam FULL 0=partial, 1=full range, 2=full range with check
+ * @tparam BASE base to subtract from integer
  * @param a obtained number (output)
  * @param ib begin iterator
  * @param ie end iterator
  * @returns iterator to end of number, or error if FULL==2
  */
-template <int FULL=0, class T, class I>
+template <int FULL=0, int BASE=0, class T, class I>
 inline I parseNumberW(T& a, I ib, I ie) {
-  if constexpr      (is_integral<T>::value)       return parseIntegerW<FULL>(a, ib, ie);
-  else if constexpr (is_floating_point<T>::value) return parseFloatW<FULL>  (a, ib, ie);
+  if constexpr      (is_integral<T>::value)       return parseIntegerW<FULL, BASE>(a, ib, ie);
+  else if constexpr (is_floating_point<T>::value) return parseFloatW<FULL>(a, ib, ie);
   return ib;
 }
 #pragma endregion
@@ -250,6 +254,7 @@ inline I readTokenW(string_view& a, I ib, I ie, FU fu, FW fw) {
 /**
  * Obtain the next number from a string.
  * @tparam CHECK check for error?
+ * @tparam BASE base to subtract from integer
  * @param a obtained number (output)
  * @param ib begin iterator (updated)
  * @param ie end iterator
@@ -257,11 +262,11 @@ inline I readTokenW(string_view& a, I ib, I ie, FU fu, FW fw) {
  * @param fw is special whitespace, e.g. comma? (c)
  * @returns iterator to end of number
  */
-template <bool CHECK=false, class T, class I, class FU, class FW>
+template <bool CHECK=false, int BASE=0, class T, class I, class FU, class FW>
 inline I readNumberW(T& a, I ib, I ie, FU fu, FW fw) {
   auto [tb, te] = findNextToken(ib, ie, fu, fw);
   if constexpr (CHECK) { if (tb==te) throw FormatError("Failed to read number (empty)", tb); }
-  tb = parseNumberW<CHECK? 2:1>(a, tb, te);
+  tb = parseNumberW<CHECK? 2:1, BASE>(a, tb, te);
   if constexpr (CHECK) { if (tb!=te) throw FormatError("Failed to read number (bad format)", tb); }
   return te;
 }
