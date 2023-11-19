@@ -15,6 +15,7 @@ cd $src
 : "${KEY_TYPE:=uint32_t}"
 : "${EDGE_VALUE_TYPE:=float}"
 : "${MAX_THREADS:=1}"
+: "${NUM_PARTITIONS:=1}"
 
 # Perform necessary steps
 perform-all() {
@@ -23,6 +24,7 @@ DEFINES=(""
 "-DKEY_TYPE=$KEY_TYPE"
 "-DEDGE_VALUE_TYPE=$EDGE_VALUE_TYPE"
 "-DMAX_THREADS=$1"
+"-DNUM_PARTITIONS=$2"
 )
 # Run
 g++ ${DEFINES[*]} -std=c++17 -O3 -fopenmp main.cxx
@@ -42,10 +44,16 @@ stdbuf --output=L ./a.out ~/Data/kmer_A2a.mtx        2>&1 | tee -a "$out"
 stdbuf --output=L ./a.out ~/Data/kmer_V1r.mtx        2>&1 | tee -a "$out"
 }
 
-for i in {1..5}; do
-  perform-all 1
-  perform-all 64
-done
+perform-all 1   1
+perform-all 1   2
+perform-all 1   4
+perform-all 1   8
+perform-all 1   16
+perform-all 64  1
+perform-all 64  2
+perform-all 64  4
+perform-all 64  8
+perform-all 64  16
 
 # Signal completion
 curl -X POST "https://maker.ifttt.com/trigger/puzzlef/with/key/${IFTTT_KEY}?value1=$src$1"

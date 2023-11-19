@@ -22,6 +22,10 @@ using namespace std;
 /** Maximum number of threads to use. */
 #define MAX_THREADS 1
 #endif
+#ifndef NUM_PARTITIONS
+/** Number of partitions to use. */
+#define NUM_PARTITIONS 1
+#endif
 #pragma endregion
 
 
@@ -42,6 +46,7 @@ int main(int argc, char **argv) {
   bool weighted = argc>2? atoi(argv[2]) : false;
   omp_set_num_threads(MAX_THREADS);
   printf("OMP_NUM_THREADS=%d\n", MAX_THREADS);
+  printf("NUM_PARTITIONS=%d\n", NUM_PARTITIONS);
   printf("Reading graph %s ...\n", file);
   // Read MTX file header.
   MappedFile mf(file);
@@ -55,6 +60,9 @@ int main(int argc, char **argv) {
   vector<K*> targets(MAX_THREADS);
   vector<E*> weights(MAX_THREADS);
   vector<unique_ptr<size_t>> counts;
+  vector<O*> poffsets(NUM_PARTITIONS);
+  vector<K*> pedgeKeys(NUM_PARTITIONS);
+  vector<E*> pedgeValues(NUM_PARTITIONS);
   vector<O> offsets(rows+1);
   vector<K> edgeKeys(size);
   vector<E> edgeValues;
@@ -65,12 +73,17 @@ int main(int argc, char **argv) {
     targets[t] = new K[size];
     weights[t] = weighted? new E[size] : nullptr;
   }
+  for (int p=0; p<NUM_PARTITIONS; p++) {
+    poffsets[p]    = new O[rows+1];
+    pedgeKeys[p]   = new K[size];
+    pedgeValues[p] = weighted? new E[size] : nullptr;
+  }
   // Read MTX file body.
   symmetric = false;  // We don't want the reverse edges
   float t = measureDuration([&]() {
-    if (weighted) counts = readEdgelistFormatOmpU<true> (degrees, sources, targets, weights, data, symmetric);
-    else          counts = readEdgelistFormatOmpU<false>(degrees, sources, targets, weights, data, symmetric);
-    convertToCsrFormatOmpW(offsets, edgeKeys, edgeValues, degrees, sources, targets, weights, counts, rows);
+    if (weighted) counts = readEdgelistFormatOmpU<NUM_PARTITIONS, true> (degrees, sources, targets, weights, data, symmetric);
+    else          counts = readEdgelistFormatOmpU<NUM_PARTITIONS, false>(degrees, sources, targets, weights, data, symmetric);
+    convertToCsrFormatOmpW<NUM_PARTITIONS>(offsets, edgeKeys, edgeValues, poffsets, pedgeKeys, pedgeValues, degrees, sources, targets, weights, counts, rows);
   });
   // Calculate total number of edges read.
   size_t read = 0;
