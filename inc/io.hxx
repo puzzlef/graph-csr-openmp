@@ -98,13 +98,13 @@ inline size_t readMtxFormatHeaderW(bool& symmetric, size_t& rows, size_t& cols, 
 #pragma region READ EDGELIST FORMAT
 /**
  * Read a file in Edgelist format, using mmap and sscanf.
- * @tparam CHECK check for error?
+ * @tparam BASE base vertex-id (0 or 1)
  * @param data input file data
  * @param symmetric is graph symmetric?
  * @param weighted is graph weighted?
  * @param fb on body line (u, v, w)
  */
-template <class FB>
+template <int BASE=1, class FB>
 inline void readEdgelistFormatDoChecked(string_view data, bool symmetric, bool weighted, FB fb) {
   auto fu = [](char c) { return c==','; };                      // Support CSV
   auto fw = [](char c) { return c==',' || c=='%' || c=='#'; };  // Support CSV, comments
@@ -120,6 +120,7 @@ inline void readEdgelistFormatDoChecked(string_view data, bool symmetric, bool w
     if (weighted) {
       it = readNumberW<true>(w, it, ie, fu, fw);  // Edge weight
     }
+    if constexpr (BASE) { --u; --v; }  // Convert to 0-based
     if (u<0 || v<0) throw FormatError("Invalid Edgelist body (negative vertex-id)", il);
     fb(u, v, w);
     if (symmetric && u!=v) fb(v, u, w);
@@ -129,12 +130,13 @@ inline void readEdgelistFormatDoChecked(string_view data, bool symmetric, bool w
 
 /**
  * Read an EdgeList format file (crazy frog version).
+ * @tparam BASE base vertex-id (0 or 1)
  * @param data input file data (updated)
  * @param symmetric is graph symmetric
  * @param weighted is graph weighted
  * @param fb on body line (u, v, w)
  */
-template <class FB>
+template <int BASE=1, class FB>
 inline void readEdgelistFormatDoUnchecked(string_view data, bool symmetric, bool weighted, FB fb) {
   auto ib = data.begin(), ie = data.end(), it = ib;
   while (true) {
@@ -149,6 +151,7 @@ inline void readEdgelistFormatDoUnchecked(string_view data, bool symmetric, bool
       it = findNextDigit(it, ie);
       it = parseFloatW(w, it, ie);  // Edge weight
     }
+    if constexpr (BASE) { --u; --v; }  // Convert to 0-based
     fb(u, v, w);
     if (symmetric && u!=v) fb(v, u, w);
   }
@@ -158,21 +161,23 @@ inline void readEdgelistFormatDoUnchecked(string_view data, bool symmetric, bool
 /**
  * Read an EdgeList format file.
  * @tparam CHECK check for error?
+ * @tparam BASE base vertex-id (0 or 1)
  * @param data input file data (updated)
  * @param symmetric is graph symmetric
  * @param weighted is graph weighted
  * @param fb on body line (u, v, w)
  */
-template <bool CHECK=false, class FB>
+template <bool CHECK=false, int BASE=1, class FB>
 inline void readEdgelistFormatDo(string_view data, bool symmetric, bool weighted, FB fb) {
-  if constexpr (CHECK) readEdgelistFormatDoChecked(data, symmetric, weighted, fb);
-  else readEdgelistFormatDoUnchecked(data, symmetric, weighted, fb);
+  if constexpr (CHECK) readEdgelistFormatDoChecked<BASE>(data, symmetric, weighted, fb);
+  else readEdgelistFormatDoUnchecked<BASE>(data, symmetric, weighted, fb);
 }
 
 
 /**
  * Read a file in Edgelist format, and record the edges.
  * @tparam CHECK check for error?
+ * @tparam BASE base vertex-id (0 or 1)
  * @param sources source vertices (output)
  * @param targets target vertices (output)
  * @param weights edge weights (output)
@@ -180,10 +185,10 @@ inline void readEdgelistFormatDo(string_view data, bool symmetric, bool weighted
  * @param symmetric is graph symmetric?
  * @param weighted is graph weighted?
  */
-template <bool CHECK=false, class IK, class IE>
+template <bool CHECK=false, int BASE=1, class IK, class IE>
 inline void readEdgelistFormatW(IK sources, IK targets, IE weights, string_view data, bool symmetric, bool weighted) {
   size_t i = 0;
-  readEdgelistFormatDo<CHECK>(data, symmetric, weighted, [&](auto u, auto v, auto w) {
+  readEdgelistFormatDo<CHECK, BASE>(data, symmetric, weighted, [&](auto u, auto v, auto w) {
     sources[i] = u;
     targets[i] = v;
     if (weighted) weights[i] = w;
@@ -212,6 +217,7 @@ inline string_view readEdgelistFormatBlock(string_view data, size_t b, size_t B)
 /**
  * Read an EdgeList format file, and record the edges and vertex degrees.
  * @tparam CHECK check for error?
+ * @tparam BASE base vertex-id (0 or 1)
  * @param sources per-thread source vertices (output)
  * @param targets per-thread target vertices (output)
  * @param weights per-thread edge weights (output)
@@ -220,7 +226,7 @@ inline string_view readEdgelistFormatBlock(string_view data, size_t b, size_t B)
  * @param weighted is graph weighted
  * @returns per-thread number of edges read
  */
-template <bool CHECK=false, class IIK, class IIE>
+template <bool CHECK=false, int BASE=1, class IIK, class IIE>
 inline auto readEdgelistFormatOmpW(IIK sources, IIK targets, IIE weights, string_view data, bool symmetric, bool weighted) {
   const size_t DATA  = data.size();
   const size_t BLOCK = 256 * 1024;  // Characters per block (256KB)
@@ -248,10 +254,10 @@ inline auto readEdgelistFormatOmpW(IIK sources, IIK targets, IIE weights, string
       ++i;
     };
     if constexpr (CHECK) {
-      try { readEdgelistFormatDo<true>(bdata, symmetric, weighted, fb); }
+      try { readEdgelistFormatDo<true, BASE>(bdata, symmetric, weighted, fb); }
       catch (const FormatError& e) { if (err.empty()) err = e; }
     }
-    else readEdgelistFormatDo(bdata, symmetric, weighted, fb);
+    else readEdgelistFormatDo<false, BASE>(bdata, symmetric, weighted, fb);
     // Update per-thread index.
     *is[t] = i;
   }
