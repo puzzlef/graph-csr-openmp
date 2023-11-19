@@ -254,7 +254,8 @@ inline auto readEdgelistFormatOmpU(IIK degrees, IIK sources, IIK targets, IIE we
       sources[t][i] = u;
       targets[t][i] = v;
       if constexpr (WEIGHTED) weights[t][i] = w;
-      ++degrees[t][u];
+      #pragma omp atomic
+      ++degrees[0][u];
       ++i;
     };
     if constexpr (CHECK) {
