@@ -13,6 +13,7 @@ using std::string;
 using std::string_view;
 using std::vector;
 using std::make_unique;
+using std::memcpy;
 using std::strcmp;
 using std::strtoull;
 using std::strtod;
@@ -254,8 +255,8 @@ inline vector<unique_ptr<size_t>> readEdgelistFormatOmpU(IIK degrees, IIK source
       sources[t][i] = u;
       targets[t][i] = v;
       if constexpr (WEIGHTED) weights[t][i] = w;
-      // #pragma omp atomic
-      ++degrees[t][u];
+      #pragma omp atomic
+      ++degrees[0][u];
       ++i;
     };
     if constexpr (CHECK) {
@@ -271,5 +272,79 @@ inline vector<unique_ptr<size_t>> readEdgelistFormatOmpU(IIK degrees, IIK source
   return is;
 }
 #endif
+#pragma endregion
+
+
+
+
+#pragma region CONVERT TO CSR FORMAT
+/**
+ * Convert Edgelist format to CSR format.
+ * @tparam WEIGHTED is graph weighted?
+ * @param offsets CSR offsets (output)
+ * @param edgeKeys CSR edge keys (output)
+ * @param edgeValues CSR edge values (output)
+ * @param degrees vertex degrees
+ * @param sources source vertices
+ * @param targets target vertices
+ * @param weights edge weights
+ * @param rows number of rows/vertices
+ */
+template <bool WEIGHTED=false, class IO, class IK, class IE>
+inline void convertToCsrFormatW(IO offsets, IK edgeKeys, IE edgeValues, IK degrees, IK sources, IK targets, IE weights, size_t rows) {
+  // Compute offsets.
+  exclusiveScanW(&offsets[0], &degrees[0][0], rows+1);
+  // Populate CSR format.
+  for (size_t i=0; i<rows; ++i) {
+    size_t u = sources[i];
+    size_t v = targets[i];
+    size_t j = offsets[u]++;
+    edgeKeys[j] = v;
+    if constexpr (WEIGHTED) edgeValues[j] = weights[i];
+  }
+  // Fix offsets.
+  memcpy(&offsets[1], &offsets[0], rows * sizeof(offsets[0]));
+  offsets[0] = 0;
+}
+
+
+/**
+ * Convert Edgelist format to CSR format.
+ * @tparam WEIGHTED is graph weighted?
+ * @param offsets CSR offsets (output)
+ * @param edgeKeys CSR edge keys (output)
+ * @param edgeValues CSR edge values (output)
+ * @param degrees per-thread vertex degrees
+ * @param sources per-thread source vertices
+ * @param targets per-thread target vertices
+ * @param weights per-thread edge weights
+ * @param counts per-thread number of edges read
+ * @param rows number of rows/vertices
+ */
+template <bool WEIGHTED=false, class IO, class IK, class IE, class IIK, class IIE>
+inline void convertToCsrFormatOmpW(IO offsets, IK edgeKeys, IE edgeValues, IIK degrees, IIK sources, IIK targets, IIE weights, const vector<unique_ptr<size_t>>& counts, size_t rows) {
+  int T = omp_get_max_threads();
+  vector<size_t> buf(T);
+  // Compute offsets.
+  exclusiveScanOmpW(&offsets[0], &buf[0], &degrees[0][0], rows+1);
+  // Populate CSR format.
+  #pragma omp parallel
+  {
+    int t = omp_get_thread_num();
+    size_t I = *counts[t];
+    for (size_t i=0; i<I; ++i) {
+      size_t u = sources[t][i];
+      size_t v = targets[t][i];
+      size_t j = 0;
+      #pragma omp atomic capture
+      j = offsets[u]++;
+      edgeKeys[j] = v;
+      if constexpr (WEIGHTED) edgeValues[j] = weights[t][i];
+    }
+  }
+  // Fix offsets.
+  memcpy(&offsets[1], &offsets[0], rows * sizeof(offsets[0]));
+  offsets[0] = 0;
+}
 #pragma endregion
 #pragma endregion

@@ -35,6 +35,7 @@ using namespace std;
  * @returns zero on success, non-zero on failure
  */
 int main(int argc, char **argv) {
+  using O = size_t;
   using K = KEY_TYPE;
   using E = EDGE_VALUE_TYPE;
   char *file    = argv[1];
@@ -54,8 +55,12 @@ int main(int argc, char **argv) {
   vector<K*> targets(MAX_THREADS);
   vector<E*> weights(MAX_THREADS);
   vector<unique_ptr<size_t>> counts;
+  vector<O> offsets(rows+1);
+  vector<K> edgeKeys(size);
+  vector<E> edgeValues;
+  if (weighted) edgeValues.resize(size);
   for (int t=0; t<MAX_THREADS; t++) {
-    degrees[t] = new K[rows];
+    degrees[t] = new K[rows+1];
     sources[t] = new K[size];
     targets[t] = new K[size];
     weights[t] = weighted? new E[size] : nullptr;
@@ -65,6 +70,7 @@ int main(int argc, char **argv) {
   float t = measureDuration([&]() {
     if (weighted) counts = readEdgelistFormatOmpU<true> (degrees, sources, targets, weights, data, symmetric);
     else          counts = readEdgelistFormatOmpU<false>(degrees, sources, targets, weights, data, symmetric);
+    convertToCsrFormatOmpW(offsets, edgeKeys, edgeValues, degrees, sources, targets, weights, counts, rows);
   });
   // Calculate total number of edges read.
   size_t read = 0;
