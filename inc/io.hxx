@@ -179,6 +179,7 @@ inline void readEdgelistFormatDo(string_view data, bool symmetric, FB fb) {
  * @tparam WEIGHTED is graph weighted?
  * @tparam BASE base vertex id (0 or 1)
  * @tparam CHECK check for error?
+ * @param degrees vertex degrees (updated)
  * @param sources source vertices (output)
  * @param targets target vertices (output)
  * @param weights edge weights (output)
@@ -186,12 +187,13 @@ inline void readEdgelistFormatDo(string_view data, bool symmetric, FB fb) {
  * @param symmetric is graph symmetric?
  */
 template <bool WEIGHTED=false, int BASE=1, bool CHECK=false, class IK, class IE>
-inline void readEdgelistFormatW(IK sources, IK targets, IE weights, string_view data, bool symmetric) {
+inline void readEdgelistFormatU(IK degrees, IK sources, IK targets, IE weights, string_view data, bool symmetric) {
   size_t i = 0;
   readEdgelistFormatDo<WEIGHTED, BASE, CHECK>(data, symmetric, [&](auto u, auto v, auto w) {
     sources[i] = u;
     targets[i] = v;
     if constexpr (WEIGHTED) weights[i] = w;
+    ++degrees[u];
     ++i;
   });
 }
@@ -219,6 +221,7 @@ inline string_view readEdgelistFormatBlock(string_view data, size_t b, size_t B)
  * @tparam WEIGHTED is graph weighted?
  * @tparam BASE base vertex id (0 or 1)
  * @tparam CHECK check for error?
+ * @param degrees per-thread vertex degrees (updated)
  * @param sources per-thread source vertices (output)
  * @param targets per-thread target vertices (output)
  * @param weights per-thread edge weights (output)
@@ -227,7 +230,7 @@ inline string_view readEdgelistFormatBlock(string_view data, size_t b, size_t B)
  * @returns per-thread number of edges read
  */
 template <bool WEIGHTED=false, int BASE=1, bool CHECK=false, class IIK, class IIE>
-inline auto readEdgelistFormatOmpW(IIK sources, IIK targets, IIE weights, string_view data, bool symmetric) {
+inline auto readEdgelistFormatOmpU(IIK degrees, IIK sources, IIK targets, IIE weights, string_view data, bool symmetric) {
   const size_t DATA  = data.size();
   const size_t BLOCK = 256 * 1024;  // Characters per block (256KB)
   const int T = omp_get_max_threads();
@@ -251,6 +254,7 @@ inline auto readEdgelistFormatOmpW(IIK sources, IIK targets, IIE weights, string
       sources[t][i] = u;
       targets[t][i] = v;
       if constexpr (WEIGHTED) weights[t][i] = w;
+      ++degrees[t][u];
       ++i;
     };
     if constexpr (CHECK) {
