@@ -3,20 +3,15 @@
 #include <cstring>
 #include <cstdio>
 #include <memory>
-#include <string>
 #include <string_view>
 #include <vector>
 #include <algorithm>
+#include "_main.hxx"
 
 using std::unique_ptr;
-using std::string;
 using std::string_view;
 using std::vector;
 using std::make_unique;
-using std::strcmp;
-using std::strtoull;
-using std::strtod;
-using std::sscanf;
 using std::min;
 
 
@@ -115,10 +110,10 @@ inline void readEdgelistFormatDoChecked(string_view data, bool symmetric, bool w
     if (it==ie || *it=='%' || *it=='#' || isNewline(*it)) continue;
     // Read u, v, w (if weighted).
     int64_t u = 0, v = 0; double w = 1; auto il = it;
-    it = readNumberW<true>(u, it, ie, fu, fw);  // Source vertex
-    it = readNumberW<true>(v, it, ie, fu, fw);  // Target vertex
+    it = readNumberSimdW<true>(u, it, ie, fu, fw);  // Source vertex
+    it = readNumberSimdW<true>(v, it, ie, fu, fw);  // Target vertex
     if (weighted) {
-      it = readNumberW<true>(w, it, ie, fu, fw);  // Edge weight
+      it = readNumberSimdW<true>(w, it, ie, fu, fw);  // Edge weight
     }
     if (u<0 || v<0) throw FormatError("Invalid Edgelist body (negative vertex-id)", il);
     fb(u, v, w);
@@ -137,21 +132,23 @@ inline void readEdgelistFormatDoChecked(string_view data, bool symmetric, bool w
 template <class FB>
 inline void readEdgelistFormatDoUnchecked(string_view data, bool symmetric, bool weighted, FB fb) {
   auto ib = data.begin(), ie = data.end(), it = ib;
+  asm("vzeroupper");  // Clear AVX registers (for performance)
   while (true) {
     // Read u, v, w (if weighted).
     uint64_t u = 0, v = 0; double w = 1;
     it = findNextDigit(it, ie);
     if (it==ie) break;  // No more lines
-    it = parseWholeNumberW(u, it, ie);  // Source vertex
+    it = parseWholeNumberSimdW(u, it, ie);  // Source vertex
     it = findNextDigit(it, ie);
-    it = parseWholeNumberW(v, it, ie);  // Target vertex
+    it = parseWholeNumberSimdW(v, it, ie);  // Target vertex
     if (weighted) {
       it = findNextDigit(it, ie);
-      it = parseFloatW(w, it, ie);  // Edge weight
+      it = parseFloatSimdW(w, it, ie);  // Edge weight
     }
     fb(u, v, w);
     if (symmetric && u!=v) fb(v, u, w);
   }
+  asm("vzeroupper");  // Clear AVX registers (for performance)
 }
 
 

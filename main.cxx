@@ -59,9 +59,11 @@ int main(int argc, char **argv) {
   }
   // Read MTX file body.
   symmetric = false;  // We don't want the reverse edges
+  asm("vzeroupper");  // Clear AVX registers (for performance)
   float t = measureDuration([&]() {
     readEdgelistFormatOmpW(sources, targets, weights, data, symmetric, weighted);
   });
+  asm("vzeroupper");  // Clear AVX registers (for performance)
   printf("{%09.1fms, order=%zu, size=%zu} readGraphOmp\n", t, rows, size);
   printf("\n");
   return 0;
