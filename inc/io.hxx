@@ -194,7 +194,7 @@ inline void readEdgelistFormatU(IK degrees, IK sources, IK targets, IE weights, 
     sources[i] = u;
     targets[i] = v;
     if constexpr (WEIGHTED) weights[i] = w;
-    ++degrees[u];
+    // ++degrees[u];
     ++i;
   });
 }
@@ -255,8 +255,8 @@ inline vector<unique_ptr<size_t>> readEdgelistFormatOmpU(IIK degrees, IIK source
       sources[t][i] = u;
       targets[t][i] = v;
       if constexpr (WEIGHTED) weights[t][i] = w;
-      #pragma omp atomic
-      ++degrees[t % PARTS][u];
+      // #pragma omp atomic
+      // ++degrees[t % PARTS][u];
       ++i;
     };
     if constexpr (CHECK) {

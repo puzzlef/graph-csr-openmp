@@ -86,7 +86,7 @@ int main(int argc, char **argv) {
   float t = measureDuration([&]() {
     if (weighted) counts = readEdgelistFormatOmpU<NUM_PARTITIONS, true> (degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
     else          counts = readEdgelistFormatOmpU<NUM_PARTITIONS, false>(degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
-    convertToCsrFormatOmpW<NUM_PARTITIONS>(offsets.data(), edgeKeys.data(), edgeValues.data(), poffsets.data(), pedgeKeys.data(), pedgeValues.data(), degrees.data(), sources.data(), targets.data(), weights.data(), counts, rows);
+    // convertToCsrFormatOmpW<NUM_PARTITIONS>(offsets.data(), edgeKeys.data(), edgeValues.data(), poffsets.data(), pedgeKeys.data(), pedgeValues.data(), degrees.data(), sources.data(), targets.data(), weights.data(), counts, rows);
   });
   // Calculate total number of edges read.
   size_t read = 0;
