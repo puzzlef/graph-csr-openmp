@@ -93,6 +93,10 @@ int main(int argc, char **argv) {
   for (int t=0; t<MAX_THREADS; t++)
     read += *counts[t];
   printf("{%09.1fms, order=%zu, size=%zu, read=%zu} readGraphOmp\n", t, rows, size, read);
+  size_t edges = 0;
+  for (size_t i=0; i<rows; ++i)
+    edges += offsets[i+1] - offsets[i];
+  printf("edges=%zu\n", edges);
   printf("\n");
   return 0;
 }
