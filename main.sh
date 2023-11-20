@@ -44,16 +44,11 @@ stdbuf --output=L ./a.out ~/Data/kmer_A2a.mtx        2>&1 | tee -a "$out"
 stdbuf --output=L ./a.out ~/Data/kmer_V1r.mtx        2>&1 | tee -a "$out"
 }
 
-perform-all 1   1
-perform-all 1   2
-perform-all 1   4
-perform-all 1   8
-perform-all 1   16
-perform-all 64  1
-perform-all 64  2
 perform-all 64  4
-perform-all 64  8
-perform-all 64  16
+perform-all 64  4
+perform-all 64  4
+perform-all 64  4
+perform-all 64  4
 
 # Signal completion
 curl -X POST "https://maker.ifttt.com/trigger/puzzlef/with/key/${IFTTT_KEY}?value1=$src$1"
