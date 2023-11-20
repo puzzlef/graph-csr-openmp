@@ -1,6 +1,9 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstdio>
+#include <memory>
+#include <string_view>
+#include <vector>
 #include <fstream>
 #include "inc/main.hxx"
 
