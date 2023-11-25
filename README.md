@@ -22,6 +22,14 @@ Design of high-performance OpenMP-based parallel Graph CSR loader.
 
 ### Graph frameworks
 
+- [GT-TDAlab/PIGO](https://github.com/GT-TDAlab/PIGO)
+- [rapidsai/cuhornet](https://github.com/rapidsai/cuhornet)
+- [gunrock/gunrock](https://github.com/gunrock/gunrock)
+- [the-data-lab/GraphOne](https://github.com/the-data-lab/GraphOne)
+- [rapidsai/cugraph](https://github.com/rapidsai/cugraph)
+- [cmuparlay/pbbsbench](https://github.com/cmuparlay/pbbsbench)
+- [KatanaGraph/katana](https://github.com/KatanaGraph/katana)
+- [GraphIt-DSL/graphit](https://github.com/GraphIt-DSL/graphit)
 
 
 ### Memory mapping
