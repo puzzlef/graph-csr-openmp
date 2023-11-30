@@ -1,5 +1,65 @@
 Design of high-performance OpenMP-based parallel Graph CSR loader.
 
+High-performance graph processing frameworks like [Gunrock], [Hornet], [Ligra], and [Galois] help accelerate graph analytics tasks. However, graph loading is a major bottleneck in these frameworks. Fast graph loading is crucial for improving response time and reducing system/cloud usage charges. To address this, we introduce **GVEL**, a highly optimized method for *reading Edgelists* from text files and *converting them into Compressed Sparse Row (CSR) format*.
+
+Below we plot the time taken by Hornet, Gunrock, [PIGO], and GVEL for reading Edgelist and converting it to CSR on 13 different graphs. PIGO and GVEL are not visible on this scale - they are significantly faster than Hornet and Gunrock. The graph loading time for Hornet is not shown for `uk-2002`, `it-2004`, and `sk-2005` graphs as it crashed while loading. GVEL surpasses Hornet, Gunrock, and PIGO in CSR reading by `78×`, `112×`, and `1.8×`, respectively.
+
+[![](https://i.imgur.com/MhLmthh.png)][sheets-compare]
+
+Below we plot only the time taken by PIGO and GVEL for reading Edgelist and converting it to CSR.
+
+[![](https://i.imgur.com/bCPxAhj.png)][sheets-compare]
+
+Next, we plot the time taken by PIGO and GVEL for reading Edgelist. Here, GVEL outperforms PIGO by `2.6×`, achieving a read rate of `1.9 billion edges/s` with 64 threads.
+
+[![](https://i.imgur.com/HAxVu53.png)][sheets-compare]
+
+Finally, we plot the strong scaling behaviour of GVEL for reading Edgelist, and for reading CSR.
+
+[![](https://i.imgur.com/Qn64Uhn.png)][sheets]
+
+Refer to our technical report for more details: \
+[GVEL: Fast Graph Loading in Edgelist and Compressed Sparse Row (CSR) formats][report].
+
+<br>
+
+> [!NOTE]
+> You can just copy `main.sh` to your system and run it. \
+> For the code, refer to `main.cxx`.
+
+[sheets]: https://docs.google.com/spreadsheets/d/1aN2yq3XLOsUTnHTQ9NWo_xNqAuI_BA_alLI9Uy8B4QY/edit?usp=sharing
+[sheets-compare]: https://docs.google.com/spreadsheets/d/1L8W9iqtDsrUb_ZfCuCD7hxSvzJOXZPkKfvhpE5aNcJ0/edit?usp=sharing
+[report]: https://arxiv.org/abs/2311.14650
+[Gunrock]: https://github.com/gunrock/gunrock
+[Hornet]: https://github.com/rapidsai/cuhornet
+[Ligra]: https://github.com/jshun/ligra
+[Galois]: https://github.com/IntelligentSoftwareSystems/Galois
+[PIGO]: https://github.com/GT-TDAlab/PIGO
+
+<br>
+<br>
+
+
+### Code structure
+
+The code structure of GVEL is as follows:
+
+```bash
+- inc/_cctype.hxx: Character classification/conversion
+- inc/debug.hxx: Debugging macros (LOG, ASSERT, ...)
+- inc/exception.hxx: Custom exception class (FormatError)
+- inc/_mman.hxx: Memory mapping/allcation functions
+- inc/_openmp.hxx: OpenMP utility functions
+- inc/_string.hxx: Number parsing/string tokenization
+- inc/_utility.hxx: Runtime measurement functions
+- inc/_vector.hxx: Vector utility functions
+- inc/io.hxx: COO/MTX file reading functions
+- main.cxx: Experimentation code
+- process.js: Node.js script for processing output logs
+```
+
+Note that each branch in this repository contains code for a specific experiment. The `main` branch contains code for the final experiment. If the intention of a branch in unclear, or if you have comments on our technical report, feel free to open an issue.
+
 <br>
 <br>
 
@@ -237,3 +297,10 @@ Design of high-performance OpenMP-based parallel Graph CSR loader.
 - [Remove First n Lines of a Large Text File - Ask Ubuntu](https://askubuntu.com/questions/410196/remove-first-n-lines-of-a-large-text-file/410209#410209)
 - [javascript - How to append to a file in Node? - Stack Overflow](https://stackoverflow.com/questions/3459476/how-to-append-to-a-file-in-node)
 - [git - Pushing code from one branch of a repo to another branch of another repo - Stack Overflow](https://stackoverflow.com/questions/35939308/pushing-code-from-one-branch-of-a-repo-to-another-branch-of-another-repo)
+
+<br>
+<br>
+
+
+[![](https://img.youtube.com/vi/yqO7wVBTuLw/maxresdefault.jpg)](https://www.youtube.com/watch?v=yqO7wVBTuLw)<br>
+[![ORG](https://img.shields.io/badge/org-puzzlef-green?logo=Org)](https://puzzlef.github.io)
