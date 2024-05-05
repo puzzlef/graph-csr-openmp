@@ -19,7 +19,7 @@ if [[ "$DOWNLOAD" != "0" ]]; then
   rm -rf $src
   git clone https://github.com/puzzlef/$src
   cd $src
-  git checkout adjust-csr-partitions
+  git checkout adjust-csr-partitions32
 fi
 
 # Fixed config
@@ -57,13 +57,12 @@ stdbuf --output=L ./a.out ~/Data/kmer_V1r.mtx        2>&1 | tee -a "$out"
 
 # Adjust the number of partitions
 perform-adjust() {
-  perform-all 64 1
-  perform-all 64 2
-  perform-all 64 4
-  perform-all 64 8
-  perform-all 64 16
-  perform-all 64 32
-  perform-all 64 64
+  perform-all 32 1
+  perform-all 32 2
+  perform-all 32 4
+  perform-all 32 8
+  perform-all 32 16
+  perform-all 32 32
 }
 
 # Perform all configurations 5 times
