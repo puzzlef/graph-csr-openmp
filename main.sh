@@ -19,7 +19,7 @@ if [[ "$DOWNLOAD" != "0" ]]; then
   rm -rf $src
   git clone https://github.com/puzzlef/$src
   cd $src
-  git checkout adjust-csr-partitions
+  git checkout adjust-csr-partitions-direct
 fi
 
 # Fixed config
