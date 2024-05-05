@@ -1,4 +1,14 @@
 #!/usr/bin/env bash
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=64
+#SBATCH --exclusive
+#SBATCH --job-name slurm
+#SBATCH --output=slurm.out
+# source scl_source enable gcc-toolset-11
+# module load hpcx-2.7.0/hpcx-ompi
+# module load openmpi/4.1.5
 src="graph-csr-openmp"
 out="$HOME/Logs/$src$1.log"
 ulimit -s unlimited
@@ -8,14 +18,16 @@ printf "" > "$out"
 if [[ "$DOWNLOAD" != "0" ]]; then
   rm -rf $src
   git clone https://github.com/puzzlef/$src
+  cd $src
+  git checkout adjust-block-size
 fi
-cd $src
 
 # Fixed config
 : "${KEY_TYPE:=uint32_t}"
 : "${EDGE_VALUE_TYPE:=float}"
 : "${MAX_THREADS:=1}"
 : "${NUM_PARTITIONS:=1}"
+: "${BLOCK_SIZE:=256}"
 
 # Perform necessary steps
 perform-all() {
@@ -23,8 +35,9 @@ perform-all() {
 DEFINES=(""
 "-DKEY_TYPE=$KEY_TYPE"
 "-DEDGE_VALUE_TYPE=$EDGE_VALUE_TYPE"
-"-DMAX_THREADS=$1"
-"-DNUM_PARTITIONS=$2"
+"-DBLOCK_SIZE=$1"
+"-DMAX_THREADS=64"
+"-DNUM_PARTITIONS=4"
 )
 # Run
 g++ ${DEFINES[*]} -std=c++17 -O3 -fopenmp main.cxx
@@ -44,11 +57,29 @@ stdbuf --output=L ./a.out ~/Data/kmer_A2a.mtx        2>&1 | tee -a "$out"
 stdbuf --output=L ./a.out ~/Data/kmer_V1r.mtx        2>&1 | tee -a "$out"
 }
 
-perform-all 64  4
-perform-all 64  4
-perform-all 64  4
-perform-all 64  4
-perform-all 64  4
+# Adjust the number of partitions
+perform-adjust() {
+  perform-all 256
+  perform-all 512
+  perform-all 1024
+  perform-all 2048
+  perform-all 4096
+  perform-all 8192
+  perform-all 16384
+  perform-all 32768
+  perform-all 65536
+  perform-all 131072
+  perform-all 262144
+  perform-all 524288
+  perform-all 1048576
+  perform-all 2097152
+  perform-all 4194304
+}
+
+# Perform all configurations 5 times
+for i in {1..2}; do
+  perform-adjust
+done
 
 # Signal completion
 curl -X POST "https://maker.ifttt.com/trigger/puzzlef/with/key/${IFTTT_KEY}?value1=$src$1"

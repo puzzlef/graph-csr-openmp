@@ -3,6 +3,8 @@ const os = require('os');
 const path = require('path');
 
 const ROMPTH = /^OMP_NUM_THREADS=(.+)/m;
+const RNUMPA = /^NUM_PARTITIONS=(.+)/m;
+const RBLKSZ = /^BLOCK_SIZE=(.+)/m;
 const RGRAPH = /^Reading graph .*\/(.*?)\.mtx \.\.\./m;
 const RRESLT = /^\{(.+?)ms, order=(.+?), size=(.+?)\} (.+)/m;
 
@@ -48,6 +50,14 @@ function readLogLine(ln, data, state) {
   if (ROMPTH.test(ln)) {
     var [, omp_num_threads] = ROMPTH.exec(ln);
     state.omp_num_threads   = omp_num_threads;
+  }
+  if (RNUMPA.test(ln)) {
+    var [, num_partitions] = RNUMPA.exec(ln);
+    state.num_partitions   = num_partitions;
+  }
+  if (RBLKSZ.test(ln)) {
+    var [, block_size] = RBLKSZ.exec(ln);
+    state.block_size   = block_size;
   }
   if (RGRAPH.test(ln)) {
     var [, graph] = RGRAPH.exec(ln);

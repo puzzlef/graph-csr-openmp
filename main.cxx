@@ -29,6 +29,10 @@ using namespace std;
 /** Number of partitions to use. */
 #define NUM_PARTITIONS 1
 #endif
+#ifndef BLOCK_SIZE
+/** Block size for reading the graph. */
+#define BLOCK_SIZE 256
+#endif
 #pragma endregion
 
 
@@ -50,6 +54,7 @@ int main(int argc, char **argv) {
   omp_set_num_threads(MAX_THREADS);
   printf("OMP_NUM_THREADS=%d\n", MAX_THREADS);
   printf("NUM_PARTITIONS=%d\n", NUM_PARTITIONS);
+  printf("BLOCK_SIZE=%zu\n", BLOCK_SIZE);
   printf("Reading graph %s ...\n", file);
   // Read MTX file header.
   MappedFile mf(file);
@@ -84,10 +89,10 @@ int main(int argc, char **argv) {
   // Read MTX file body.
   symmetric = false;  // We don't want the reverse edges
   float t = measureDuration([&]() {
-    if (weighted) counts = readEdgelistFormatOmpU<NUM_PARTITIONS, true> (degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
-    else          counts = readEdgelistFormatOmpU<NUM_PARTITIONS, false>(degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
-    convertToCsrFormatOmpW<NUM_PARTITIONS>(offsets.data(), edgeKeys.data(), edgeValues.data(), poffsets.data(), pedgeKeys.data(), pedgeValues.data(), degrees.data(), sources.data(), targets.data(), weights.data(), counts, rows);
+    if (weighted) counts = readEdgelistFormatOmpU<BLOCK_SIZE, NUM_PARTITIONS, true> (degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
+    else          counts = readEdgelistFormatOmpU<BLOCK_SIZE, NUM_PARTITIONS, false>(degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
   });
+  convertToCsrFormatOmpW<NUM_PARTITIONS>(offsets.data(), edgeKeys.data(), edgeValues.data(), poffsets.data(), pedgeKeys.data(), pedgeValues.data(), degrees.data(), sources.data(), targets.data(), weights.data(), counts, rows);
   // Calculate total number of edges read.
   size_t read = 0;
   for (int t=0; t<MAX_THREADS; t++)

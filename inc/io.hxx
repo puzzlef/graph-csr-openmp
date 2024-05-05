@@ -230,10 +230,10 @@ inline string_view readEdgelistFormatBlock(string_view data, size_t b, size_t B)
  * @param symmetric is graph symmetric
  * @returns per-thread number of edges read
  */
-template <int PARTS=1, bool WEIGHTED=false, int BASE=1, bool CHECK=false, class IIK, class IIE>
+template <size_t BLOCK=256*1024, int PARTS=1, bool WEIGHTED=false, int BASE=1, bool CHECK=false, class IIK, class IIE>
 inline vector<unique_ptr<size_t>> readEdgelistFormatOmpU(IIK degrees, IIK sources, IIK targets, IIE weights, string_view data, bool symmetric) {
   const size_t DATA  = data.size();
-  const size_t BLOCK = 256 * 1024;  // Characters per block (256KB)
+  // const size_t BLOCK = 256 * 1024;  // Characters per block (256KB)
   const int T = omp_get_max_threads();
   FormatError err;  // Common error
   // Allocate space for per-thread index.
