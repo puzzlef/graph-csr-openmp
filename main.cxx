@@ -57,26 +57,28 @@ int main(int argc, char **argv) {
   bool symmetric = false; size_t rows = 0, cols = 0, size = 0;
   size_t head = readMtxFormatHeaderW(symmetric, rows, cols, size, data);
   data.remove_prefix(head);
-  // Allocate memory.
-  vector<K*> degrees(MAX_THREADS);
-  vector<K*> sources(MAX_THREADS);
-  vector<K*> targets(MAX_THREADS);
-  vector<E*> weights(MAX_THREADS);
+  // Allocate space for CSR.
+  DiGraphCsr<K, None, E> xc;
+  const size_t N = max(rows, cols);
+  const size_t M = size;
+  xc.resize(N, M);
+  // Allocate space for sources, targets, weights, degrees, offsets, edge keys, and edge values.
+  const int T = omp_get_max_threads();
   vector<size_t> counts;
+  vector<K*> degrees(T);
+  vector<K*> sources(T);
+  vector<K*> targets(T);
+  vector<E*> weights(T);
   vector<O*> poffsets(NUM_PARTITIONS);
   vector<K*> pedgeKeys(NUM_PARTITIONS);
   vector<E*> pedgeValues(NUM_PARTITIONS);
-  vector<O> offsets(rows+1);
-  vector<K> edgeKeys(size);
-  vector<E> edgeValues;
-  if (weighted) edgeValues.resize(size);
-  for (int t=0; t<MAX_THREADS; t++) {
-    degrees[t] = new K[rows+1];
+  for (int t=0; t<T; t++) {
     sources[t] = new K[size];
     targets[t] = new K[size];
     weights[t] = weighted? new E[size] : nullptr;
   }
   for (int p=0; p<NUM_PARTITIONS; p++) {
+    degrees[p]     = new K[rows+1];
     poffsets[p]    = new O[rows+1];
     pedgeKeys[p]   = new K[size];
     pedgeValues[p] = weighted? new E[size] : nullptr;
@@ -86,7 +88,7 @@ int main(int argc, char **argv) {
   float t = measureDuration([&]() {
     if (weighted) counts = readEdgelistFormatToListsOmpU<true,  1, false, NUM_PARTITIONS>(degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
     else          counts = readEdgelistFormatToListsOmpU<false, 1, false, NUM_PARTITIONS>(degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
-    convertEdgelistToCsrListsOmpW<false, NUM_PARTITIONS>(offsets.data(), edgeKeys.data(), edgeValues.data(), poffsets.data(), pedgeKeys.data(), pedgeValues.data(), degrees.data(), sources.data(), targets.data(), weights.data(), counts, rows);
+    convertEdgelistToCsrListsOmpW<false, NUM_PARTITIONS>(xc.offsets.data(), xc.edgeKeys.data(), xc.edgeValues.data(), poffsets.data(), pedgeKeys.data(), pedgeValues.data(), degrees.data(), sources.data(), targets.data(), weights.data(), counts, rows);
   });
   // Calculate total number of edges read.
   size_t read = 0;
