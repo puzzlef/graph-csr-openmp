@@ -1,23 +1,15 @@
 #pragma once
 #include <cstdint>
 #include <cstring>
-#include <cstdio>
-#include <memory>
-#include <string>
+#include <type_traits>
 #include <string_view>
 #include <vector>
 #include <algorithm>
 
-using std::unique_ptr;
-using std::string;
+using std::remove_reference_t;
 using std::string_view;
 using std::vector;
-using std::make_unique;
 using std::memcpy;
-using std::strcmp;
-using std::strtoull;
-using std::strtod;
-using std::sscanf;
 using std::min;
 
 
@@ -278,7 +270,7 @@ inline vector<size_t> readEdgelistFormatToListsOmpU(IIK degrees, IIK sources, II
 
 #pragma region CONVERT TO CSR FORMAT
 /**
- * Convert Edgelist format to CSR format.
+ * Convert Edgelist to CSR (lists).
  * @tparam WEIGHTED is graph weighted?
  * @param offsets CSR offsets (output)
  * @param edgeKeys CSR edge keys (output)
@@ -291,19 +283,18 @@ inline vector<size_t> readEdgelistFormatToListsOmpU(IIK degrees, IIK sources, II
  */
 template <bool WEIGHTED=false, class IO, class IK, class IE>
 inline void convertEdgelistToCsrListsW(IO offsets, IK edgeKeys, IE edgeValues, IK degrees, IK sources, IK targets, IE weights, size_t rows) {
-  // Compute offsets.
-  exclusiveScanW(&offsets[0], &degrees[0][0], rows+1);
-  // Populate CSR format.
+  using O = remove_reference_t<decltype(offsets[0])>;
+  // Compute shifted offsets.
+  offsets[0] = O();
+  exclusiveScanW(offsets+1, degrees, rows);
+  // Populate CSR.
   for (size_t i=0; i<rows; ++i) {
     size_t u = sources[i];
     size_t v = targets[i];
-    size_t j = offsets[u]++;
+    size_t j = offsets[u+1]++;
     edgeKeys[j] = v;
     if constexpr (WEIGHTED) edgeValues[j] = weights[i];
   }
-  // Fix offsets.
-  memcpy(&offsets[1], &offsets[0], rows * sizeof(offsets[0]));
-  offsets[0] = 0;
 }
 
 
@@ -326,16 +317,14 @@ inline void convertEdgelistToCsrListsW(IO offsets, IK edgeKeys, IE edgeValues, I
  */
 template <bool WEIGHTED=false, int PARTITIONS=4, class IO, class IK, class IE, class IIO, class IIK, class IIE>
 inline void convertEdgelistToCsrListsOmpW(IO offsets, IK edgeKeys, IE edgeValues, IIO poffsets, IIK pedgeKeys, IIE pedgeValues, IIK degrees, IIK sources, IIK targets, IIE weights, const vector<size_t>& counts, size_t rows) {
-  int T = omp_get_max_threads();
+  using O = remove_reference_t<decltype(poffsets[0][0])>;  // offsets[0][0]
+  int   T = omp_get_max_threads();
   vector<size_t> buf(T);
-  // Compute offsets.
-  if (PARTITIONS==1) exclusiveScanOmpW(&offsets[0], &buf[0], &degrees[0][0], rows+1);
-  else {
-    for (int t=0; t<PARTITIONS; ++t)
-      exclusiveScanOmpW(&poffsets[t][0], &buf[0], &degrees[t][0], rows+1);
-  }
   if (PARTITIONS==1) {
-    // Populate CSR format.
+    // Compute shifted global offsets at offsets.
+    offsets[0] = O();
+    exclusiveScanOmpW(offsets+1, buf.data(), degrees[0], rows);
+    // Populate global CSR at edgeKeys[0] and edgeValues[0].
     #pragma omp parallel
     {
       int t = omp_get_thread_num();
@@ -345,65 +334,62 @@ inline void convertEdgelistToCsrListsOmpW(IO offsets, IK edgeKeys, IE edgeValues
         size_t v = targets[t][i];
         size_t j = 0;
         #pragma omp atomic capture
-        j = offsets[u]++;
+        j = offsets[u+1]++;
         edgeKeys[j] = v;
         if constexpr (WEIGHTED) edgeValues[j] = weights[t][i];
       }
     }
-    // Fix offsets.
-    memcpy(&offsets[1], &offsets[0], rows * sizeof(offsets[0]));
-    offsets[0] = 0;
+    return;
   }
-  else {
-    // Populate per-partition CSR format.
-    #pragma omp parallel
-    {
-      int t = omp_get_thread_num();
-      size_t I = counts[t];
-      for (size_t i=0; i<I; ++i) {
-        size_t u = sources[t][i];
-        size_t v = targets[t][i];
-        size_t j = 0;
-        #pragma omp atomic capture
-        j = poffsets[t % PARTITIONS][u]++;
-        pedgeKeys[t % PARTITIONS][j] = v;
-        if constexpr (WEIGHTED) pedgeValues[t % PARTITIONS][j] = weights[t][i];
+  // Compute global degrees at degrees[0].
+  #pragma omp parallel for schedule(static, 2048)
+  for (size_t u=0; u<rows; ++u) {
+    if (PARTITIONS==1) {}
+    else if (PARTITIONS==2) degrees[0][u] += degrees[1][u];
+    else if (PARTITIONS==4) degrees[0][u] += degrees[1][u] + degrees[2][u] + degrees[3][u];
+    else if (PARTITIONS==8) degrees[0][u] += degrees[1][u] + degrees[2][u] + degrees[3][u] + degrees[4][u] + degrees[5][u] + degrees[6][u] + degrees[7][u];
+    else {
+      for (int t=1; t<PARTITIONS; ++t)
+        degrees[0][u] += degrees[t][u];
+    }
+  }
+  // Compute per-partition shifted offsets at offsets[p].
+  for (int p=0; p<PARTITIONS; ++p) {
+    poffsets[p][0] = O();
+    exclusiveScanOmpW(poffsets[p]+1, buf.data(), degrees[p], rows);
+  }
+  // Populate per-partition CSR at edgeKeys[p] and edgeValues[p].
+  #pragma omp parallel
+  {
+    int t = omp_get_thread_num();
+    size_t I = counts[t];
+    for (size_t i=0; i<I; ++i) {
+      const int p = t % PARTITIONS;
+      size_t u = sources[t][i];
+      size_t v = targets[t][i];
+      size_t j = 0;
+      #pragma omp atomic capture
+      j = poffsets[p][u+1]++;
+      pedgeKeys[p][j] = v;
+      if constexpr (WEIGHTED) pedgeValues[p][j] = weights[t][i];
+    }
+  }
+  // Compute global offsets.
+  offsets[0] = O();
+  exclusiveScanOmpW(&offsets[0]+1, &buf[0], &degrees[0][0], rows);
+  // Combine per-partition CSR format.
+  #pragma omp parallel for schedule(dynamic, 2048)
+  for (size_t u=0; u<rows; ++u) {
+    size_t j = offsets[u+1];
+    for (int p=0; p<PARTITIONS; ++p) {
+      size_t i = poffsets[p][u];
+      size_t I = poffsets[p][u+1];
+      for (; i<I; ++i, ++j) {
+        edgeKeys[j] = pedgeKeys[p][i];
+        if constexpr (WEIGHTED) edgeValues[j] = pedgeValues[p][i];
       }
     }
-    // Fix per-partition offsets.
-    #pragma omp parallel
-    {
-      int t = omp_get_thread_num();
-      if (t<PARTITIONS) memcpy(&poffsets[t][1], &poffsets[t][0], rows * sizeof(poffsets[t][0]));
-      if (t<PARTITIONS) poffsets[t][0] = 0;
-    }
-    // Combine per-partition offsets.
-    #pragma omp parallel for schedule(static, 2048)
-    for (size_t u=0; u<rows; ++u) {
-      if (PARTITIONS==1) {}
-      else if (PARTITIONS==2) degrees[0][u] += degrees[1][u];
-      else if (PARTITIONS==4) degrees[0][u] += degrees[1][u] + degrees[2][u] + degrees[3][u];
-      else if (PARTITIONS==8) degrees[0][u] += degrees[1][u] + degrees[2][u] + degrees[3][u] + degrees[4][u] + degrees[5][u] + degrees[6][u] + degrees[7][u];
-      else {
-        for (int t=1; t<PARTITIONS; ++t)
-          degrees[0][u] += degrees[t][u];
-      }
-    }
-    // Compute global offsets.
-    exclusiveScanOmpW(&offsets[0], &buf[0], &degrees[0][0], rows+1);
-    // Combine per-partition CSR format.
-    #pragma omp parallel for schedule(dynamic, 2048)
-    for (size_t u=0; u<rows; ++u) {
-      size_t j = offsets[u];
-      for (int t=0; t<PARTITIONS; ++t) {
-        size_t i = poffsets[t][u];
-        size_t I = poffsets[t][u+1];
-        for (; i<I; ++i, ++j) {
-          edgeKeys[j] = pedgeKeys[t][i];
-          if constexpr (WEIGHTED) edgeValues[j] = pedgeValues[t][i];
-        }
-      }
-    }
+    offsets[u+1] = j;
   }
 }
 #pragma endregion
