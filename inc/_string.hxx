@@ -3,7 +3,9 @@
 #include <cmath>
 #include <type_traits>
 #include <utility>
+#include <string>
 #include <string_view>
+#include "_debug.hxx"
 #include "_cctype.hxx"
 #include "_exception.hxx"
 
@@ -11,12 +13,43 @@ using std::is_integral;
 using std::is_floating_point;
 using std::pair;
 using std::string_view;
+using std::string;
 using std::pow;
 
 
 
 
 #pragma region METHODS
+#pragma region COUNT LINES
+/**
+ * Count the number of lines in a string.
+ * @param x string
+ * @returns number of lines
+ */
+inline size_t countLines(const char* x) {
+  ASSERT(x);
+  size_t a = 1;
+  for (; *x; x++) {
+    if (*x == '\r' || *x == '\n') ++a;
+    else if (*x == '\r' && *(x+1) == '\n') ++x;
+  }
+  return a;
+}
+
+
+/**
+ * Count the number of lines in a string.
+ * @param x string
+ * @returns number of lines
+ */
+inline size_t countLines(const string& x) {
+  return countLines(x.c_str());
+}
+#pragma endregion
+
+
+
+
 #pragma region FIND NEXT
 /**
  * Find the next line in a string.
