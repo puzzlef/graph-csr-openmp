@@ -23,11 +23,11 @@ using namespace std;
 #endif
 #ifndef MAX_THREADS
 /** Maximum number of threads to use. */
-#define MAX_THREADS 1
+#define MAX_THREADS 64
 #endif
 #ifndef NUM_PARTITIONS
 /** Number of partitions to use. */
-#define NUM_PARTITIONS 1
+#define NUM_PARTITIONS 4
 #endif
 #pragma endregion
 
