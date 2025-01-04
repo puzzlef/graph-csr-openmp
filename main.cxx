@@ -84,9 +84,9 @@ int main(int argc, char **argv) {
   // Read MTX file body.
   symmetric = false;  // We don't want the reverse edges
   float t = measureDuration([&]() {
-    if (weighted) counts = readEdgelistFormatOmpU<NUM_PARTITIONS, true> (degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
-    else          counts = readEdgelistFormatOmpU<NUM_PARTITIONS, false>(degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
-    convertToCsrFormatOmpW<NUM_PARTITIONS>(offsets.data(), edgeKeys.data(), edgeValues.data(), poffsets.data(), pedgeKeys.data(), pedgeValues.data(), degrees.data(), sources.data(), targets.data(), weights.data(), counts, rows);
+    if (weighted) counts = readEdgelistFormatToListsOmpU<true,  1, false, NUM_PARTITIONS>(degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
+    else          counts = readEdgelistFormatToListsOmpU<false, 1, false, NUM_PARTITIONS>(degrees.data(), sources.data(), targets.data(), weights.data(), data, symmetric);
+    convertEdgelistToCsrListsOmpW<false, NUM_PARTITIONS>(offsets.data(), edgeKeys.data(), edgeValues.data(), poffsets.data(), pedgeKeys.data(), pedgeValues.data(), degrees.data(), sources.data(), targets.data(), weights.data(), counts, rows);
   });
   // Calculate total number of edges read.
   size_t read = 0;

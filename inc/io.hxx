@@ -188,7 +188,7 @@ inline void readEdgelistFormatDo(string_view data, bool symmetric, FB fb) {
  * @param symmetric is graph symmetric?
  */
 template <bool WEIGHTED=false, int BASE=1, bool CHECK=false, class IK, class IE>
-inline void readEdgelistFormatU(IK degrees, IK sources, IK targets, IE weights, string_view data, bool symmetric) {
+inline void readEdgelistFormatToListsU(IK degrees, IK sources, IK targets, IE weights, string_view data, bool symmetric) {
   size_t i = 0;
   readEdgelistFormatDo<WEIGHTED, BASE, CHECK>(data, symmetric, [&](auto u, auto v, auto w) {
     sources[i] = u;
@@ -222,6 +222,7 @@ inline string_view readEdgelistFormatBlock(string_view data, size_t b, size_t B)
  * @tparam WEIGHTED is graph weighted?
  * @tparam BASE base vertex id (0 or 1)
  * @tparam CHECK check for error?
+ * @tparam PARTITIONS number of partitions for vertex degrees
  * @param degrees per-partition vertex degrees (updated)
  * @param sources per-thread source vertices (output)
  * @param targets per-thread target vertices (output)
@@ -230,8 +231,8 @@ inline string_view readEdgelistFormatBlock(string_view data, size_t b, size_t B)
  * @param symmetric is graph symmetric
  * @returns per-thread number of edges read
  */
-template <int PARTS=1, bool WEIGHTED=false, int BASE=1, bool CHECK=false, class IIK, class IIE>
-inline vector<unique_ptr<size_t>> readEdgelistFormatOmpU(IIK degrees, IIK sources, IIK targets, IIE weights, string_view data, bool symmetric) {
+template <bool WEIGHTED=false, int BASE=1, bool CHECK=false, int PARTITIONS=4, class IIK, class IIE>
+inline vector<unique_ptr<size_t>> readEdgelistFormatToListsOmpU(IIK degrees, IIK sources, IIK targets, IIE weights, string_view data, bool symmetric) {
   const size_t DATA  = data.size();
   const size_t BLOCK = 256 * 1024;  // Characters per block (256KB)
   const int T = omp_get_max_threads();
@@ -256,7 +257,7 @@ inline vector<unique_ptr<size_t>> readEdgelistFormatOmpU(IIK degrees, IIK source
       targets[t][i] = v;
       if constexpr (WEIGHTED) weights[t][i] = w;
       #pragma omp atomic
-      ++degrees[t % PARTS][u];
+      ++degrees[t % PARTITIONS][u];
       ++i;
     };
     if constexpr (CHECK) {
@@ -291,7 +292,7 @@ inline vector<unique_ptr<size_t>> readEdgelistFormatOmpU(IIK degrees, IIK source
  * @param rows number of rows/vertices
  */
 template <bool WEIGHTED=false, class IO, class IK, class IE>
-inline void convertToCsrFormatW(IO offsets, IK edgeKeys, IE edgeValues, IK degrees, IK sources, IK targets, IE weights, size_t rows) {
+inline void convertEdgelistToCsrListsW(IO offsets, IK edgeKeys, IE edgeValues, IK degrees, IK sources, IK targets, IE weights, size_t rows) {
   // Compute offsets.
   exclusiveScanW(&offsets[0], &degrees[0][0], rows+1);
   // Populate CSR format.
@@ -311,6 +312,7 @@ inline void convertToCsrFormatW(IO offsets, IK edgeKeys, IE edgeValues, IK degre
 /**
  * Convert Edgelist format to CSR format.
  * @tparam WEIGHTED is graph weighted?
+ * @tparam PARTITIONS number of partitions for vertex degrees
  * @param offsets CSR offsets (output)
  * @param edgeKeys CSR edge keys (output)
  * @param edgeValues CSR edge values (output)
@@ -324,17 +326,17 @@ inline void convertToCsrFormatW(IO offsets, IK edgeKeys, IE edgeValues, IK degre
  * @param counts per-thread number of edges read
  * @param rows number of rows/vertices
  */
-template <int PARTS=1, bool WEIGHTED=false, class IO, class IK, class IE, class IIO, class IIK, class IIE>
-inline void convertToCsrFormatOmpW(IO offsets, IK edgeKeys, IE edgeValues, IIO poffsets, IIK pedgeKeys, IIE pedgeValues, IIK degrees, IIK sources, IIK targets, IIE weights, const vector<unique_ptr<size_t>>& counts, size_t rows) {
+template <bool WEIGHTED=false, int PARTITIONS=4, class IO, class IK, class IE, class IIO, class IIK, class IIE>
+inline void convertEdgelistToCsrListsOmpW(IO offsets, IK edgeKeys, IE edgeValues, IIO poffsets, IIK pedgeKeys, IIE pedgeValues, IIK degrees, IIK sources, IIK targets, IIE weights, const vector<unique_ptr<size_t>>& counts, size_t rows) {
   int T = omp_get_max_threads();
   vector<size_t> buf(T);
   // Compute offsets.
-  if (PARTS==1) exclusiveScanOmpW(&offsets[0], &buf[0], &degrees[0][0], rows+1);
+  if (PARTITIONS==1) exclusiveScanOmpW(&offsets[0], &buf[0], &degrees[0][0], rows+1);
   else {
-    for (int t=0; t<PARTS; ++t)
+    for (int t=0; t<PARTITIONS; ++t)
       exclusiveScanOmpW(&poffsets[t][0], &buf[0], &degrees[t][0], rows+1);
   }
-  if (PARTS==1) {
+  if (PARTITIONS==1) {
     // Populate CSR format.
     #pragma omp parallel
     {
@@ -365,27 +367,27 @@ inline void convertToCsrFormatOmpW(IO offsets, IK edgeKeys, IE edgeValues, IIO p
         size_t v = targets[t][i];
         size_t j = 0;
         #pragma omp atomic capture
-        j = poffsets[t % PARTS][u]++;
-        pedgeKeys[t % PARTS][j] = v;
-        if constexpr (WEIGHTED) pedgeValues[t % PARTS][j] = weights[t][i];
+        j = poffsets[t % PARTITIONS][u]++;
+        pedgeKeys[t % PARTITIONS][j] = v;
+        if constexpr (WEIGHTED) pedgeValues[t % PARTITIONS][j] = weights[t][i];
       }
     }
     // Fix per-partition offsets.
     #pragma omp parallel
     {
       int t = omp_get_thread_num();
-      if (t<PARTS) memcpy(&poffsets[t][1], &poffsets[t][0], rows * sizeof(poffsets[t][0]));
-      if (t<PARTS) poffsets[t][0] = 0;
+      if (t<PARTITIONS) memcpy(&poffsets[t][1], &poffsets[t][0], rows * sizeof(poffsets[t][0]));
+      if (t<PARTITIONS) poffsets[t][0] = 0;
     }
     // Combine per-partition offsets.
     #pragma omp parallel for schedule(static, 2048)
     for (size_t u=0; u<rows; ++u) {
-      if (PARTS==1) {}
-      else if (PARTS==2) degrees[0][u] += degrees[1][u];
-      else if (PARTS==4) degrees[0][u] += degrees[1][u] + degrees[2][u] + degrees[3][u];
-      else if (PARTS==8) degrees[0][u] += degrees[1][u] + degrees[2][u] + degrees[3][u] + degrees[4][u] + degrees[5][u] + degrees[6][u] + degrees[7][u];
+      if (PARTITIONS==1) {}
+      else if (PARTITIONS==2) degrees[0][u] += degrees[1][u];
+      else if (PARTITIONS==4) degrees[0][u] += degrees[1][u] + degrees[2][u] + degrees[3][u];
+      else if (PARTITIONS==8) degrees[0][u] += degrees[1][u] + degrees[2][u] + degrees[3][u] + degrees[4][u] + degrees[5][u] + degrees[6][u] + degrees[7][u];
       else {
-        for (int t=1; t<PARTS; ++t)
+        for (int t=1; t<PARTITIONS; ++t)
           degrees[0][u] += degrees[t][u];
       }
     }
@@ -395,7 +397,7 @@ inline void convertToCsrFormatOmpW(IO offsets, IK edgeKeys, IE edgeValues, IIO p
     #pragma omp parallel for schedule(dynamic, 2048)
     for (size_t u=0; u<rows; ++u) {
       size_t j = offsets[u];
-      for (int t=0; t<PARTS; ++t) {
+      for (int t=0; t<PARTITIONS; ++t) {
         size_t i = poffsets[t][u];
         size_t I = poffsets[t][u+1];
         for (; i<I; ++i, ++j) {
