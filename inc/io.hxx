@@ -232,41 +232,39 @@ inline string_view readEdgelistFormatBlock(string_view data, size_t b, size_t B)
  * @returns per-thread number of edges read
  */
 template <bool WEIGHTED=false, int BASE=1, bool CHECK=false, int PARTITIONS=4, class IIK, class IIE>
-inline vector<unique_ptr<size_t>> readEdgelistFormatToListsOmpU(IIK degrees, IIK sources, IIK targets, IIE weights, string_view data, bool symmetric) {
+inline vector<size_t> readEdgelistFormatToListsOmpU(IIK degrees, IIK sources, IIK targets, IIE weights, string_view data, bool symmetric) {
   const size_t DATA  = data.size();
   const size_t BLOCK = 256 * 1024;  // Characters per block (256KB)
   const int T = omp_get_max_threads();
-  FormatError err;  // Common error
-  // Allocate space for per-thread index.
-  vector<unique_ptr<size_t>> is(T);
-  for (int t=0; t<T; ++t)
-    is[t] = make_unique<size_t>();
+  FormatError err;       // Common error
+  vector<size_t> is(T);  // Per-thread index
   // Process a grid in parallel with dynamic scheduling.
-  #pragma omp parallel for schedule(dynamic, 1) shared(err)
-  for (size_t b=0; b<DATA; b+=BLOCK) {
+  #pragma omp parallel shared(err)
+  {
     int    t = omp_get_thread_num();
-    // Get per-thread index.
-    size_t i = *is[t];
-    // Skip if error occurred.
-    if (CHECK && !err.empty()) continue;
-    // Read a block of data.
-    string_view bdata = readEdgelistFormatBlock(data, b, BLOCK);
-    auto fb = [&](auto u, auto v, auto w) {
-      // Record the edge.
-      sources[t][i] = u;
-      targets[t][i] = v;
-      if constexpr (WEIGHTED) weights[t][i] = w;
-      #pragma omp atomic
-      ++degrees[t % PARTITIONS][u];
-      ++i;
-    };
-    if constexpr (CHECK) {
-      try { readEdgelistFormatDo<WEIGHTED, BASE, true>(bdata, symmetric, fb); }
-      catch (const FormatError& e) { if (err.empty()) err = e; }
+    size_t i = 0;
+    #pragma omp for schedule(dynamic) nowait
+    for (size_t b=0; b<DATA; b+=BLOCK) {
+      if (CHECK && !err.empty()) continue;
+      // Read a block of data, and process it.
+      string_view bdata = readEdgelistFormatBlock(data, b, BLOCK);
+      auto fb = [&](auto u, auto v, auto w) {
+        const int p = t % PARTITIONS;
+        sources[t][i] = u;
+        targets[t][i] = v;
+        if constexpr (WEIGHTED) weights[t][i] = w;
+        #pragma omp atomic
+        ++degrees[p][u];
+        ++i;
+      };
+      if constexpr (CHECK) {
+        try { readEdgelistFormatDo<WEIGHTED, BASE, true>(bdata, symmetric, fb); }
+        catch (const FormatError& e) { if (err.empty()) err = e; }
+      }
+      else readEdgelistFormatDo<WEIGHTED, BASE>(bdata, symmetric, fb);
     }
-    else readEdgelistFormatDo<WEIGHTED, BASE>(bdata, symmetric, fb);
     // Update per-thread index.
-    *is[t] = i;
+    is[t] = i;
   }
   // Throw error if any.
   if (CHECK && !err.empty()) throw err;
@@ -327,7 +325,7 @@ inline void convertEdgelistToCsrListsW(IO offsets, IK edgeKeys, IE edgeValues, I
  * @param rows number of rows/vertices
  */
 template <bool WEIGHTED=false, int PARTITIONS=4, class IO, class IK, class IE, class IIO, class IIK, class IIE>
-inline void convertEdgelistToCsrListsOmpW(IO offsets, IK edgeKeys, IE edgeValues, IIO poffsets, IIK pedgeKeys, IIE pedgeValues, IIK degrees, IIK sources, IIK targets, IIE weights, const vector<unique_ptr<size_t>>& counts, size_t rows) {
+inline void convertEdgelistToCsrListsOmpW(IO offsets, IK edgeKeys, IE edgeValues, IIO poffsets, IIK pedgeKeys, IIE pedgeValues, IIK degrees, IIK sources, IIK targets, IIE weights, const vector<size_t>& counts, size_t rows) {
   int T = omp_get_max_threads();
   vector<size_t> buf(T);
   // Compute offsets.
@@ -341,7 +339,7 @@ inline void convertEdgelistToCsrListsOmpW(IO offsets, IK edgeKeys, IE edgeValues
     #pragma omp parallel
     {
       int t = omp_get_thread_num();
-      size_t I = *counts[t];
+      size_t I = counts[t];
       for (size_t i=0; i<I; ++i) {
         size_t u = sources[t][i];
         size_t v = targets[t][i];
@@ -361,7 +359,7 @@ inline void convertEdgelistToCsrListsOmpW(IO offsets, IK edgeKeys, IE edgeValues
     #pragma omp parallel
     {
       int t = omp_get_thread_num();
-      size_t I = *counts[t];
+      size_t I = counts[t];
       for (size_t i=0; i<I; ++i) {
         size_t u = sources[t][i];
         size_t v = targets[t][i];

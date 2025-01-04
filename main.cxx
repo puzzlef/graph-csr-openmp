@@ -62,7 +62,7 @@ int main(int argc, char **argv) {
   vector<K*> sources(MAX_THREADS);
   vector<K*> targets(MAX_THREADS);
   vector<E*> weights(MAX_THREADS);
-  vector<unique_ptr<size_t>> counts;
+  vector<size_t> counts;
   vector<O*> poffsets(NUM_PARTITIONS);
   vector<K*> pedgeKeys(NUM_PARTITIONS);
   vector<E*> pedgeValues(NUM_PARTITIONS);
@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
   // Calculate total number of edges read.
   size_t read = 0;
   for (int t=0; t<MAX_THREADS; t++)
-    read += *counts[t];
+    read += counts[t];
   printf("{%09.1fms, order=%zu, size=%zu, read=%zu} readGraphOmp\n", t, rows, size, read);
   printf("\n");
   return 0;
