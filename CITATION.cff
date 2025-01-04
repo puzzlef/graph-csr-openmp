@@ -4,7 +4,7 @@ authors:
   - family-names: Sahu
     given-names: Subhajit
     orcid: https://orcid.org/0000-0001-5140-6578
-title: "puzzlef/graph-csr-openmp: Design of high-performance OpenMP-based parallel Graph Edgelist and Compressed Sparse Row (CSR) loader, aka GVEL"
+title: "GVEL: Fast Graph Loading in Edgelist and Compressed Sparse Row (CSR) formats"
 version: 1.0.0
-doi: 10.5281/zenodo.10226821
-date-released: 2023-11-30
+doi: 10.48550/arXiv.2311.14650
+date-released: 2023-11-24
